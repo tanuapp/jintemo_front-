@@ -1,0 +1,240 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * JINTEMO design system — Japanese-inspired, warm neutral, mobile-first.
+ * All colors in oklch. Never hardcode colors in components.
+ */
+
+@theme inline {
+  --font-sans: "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", "Noto Sans", ui-sans-serif, sans-serif;
+
+  --breakpoint-3xl: 90rem;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --shadow-soft: 0 1px 2px oklch(0.25 0.02 60 / 6%), 0 8px 24px oklch(0.25 0.02 60 / 5%);
+  --shadow-lift: 0 2px 6px oklch(0.25 0.02 60 / 7%), 0 18px 40px oklch(0.25 0.02 60 / 8%);
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(0.977 0.006 85);
+  --foreground: oklch(0.245 0.012 60);
+  --surface: oklch(0.955 0.009 85);
+  --card: oklch(0.992 0.004 85);
+  --card-foreground: oklch(0.245 0.012 60);
+  --popover: oklch(0.992 0.004 85);
+  --popover-foreground: oklch(0.245 0.012 60);
+  --primary: oklch(0.29 0.014 60);
+  --primary-foreground: oklch(0.977 0.006 85);
+  --secondary: oklch(0.93 0.012 80);
+  --secondary-foreground: oklch(0.29 0.014 60);
+  --muted: oklch(0.94 0.008 85);
+  --muted-foreground: oklch(0.52 0.014 65);
+  /* Brand accent: sampled from the JINTEMO logo torii-gate mark (#00397E). */
+  --accent: oklch(0.4 0.13 257);
+  --accent-foreground: oklch(0.985 0.005 85);
+  --destructive: oklch(0.55 0.19 25);
+  --destructive-foreground: oklch(0.985 0.005 85);
+  --success: oklch(0.55 0.09 155);
+  --success-foreground: oklch(0.985 0.005 85);
+  --warning: oklch(0.76 0.12 78);
+  --warning-foreground: oklch(0.34 0.06 65);
+  --border: oklch(0.9 0.011 80);
+  --input: oklch(0.9 0.011 80);
+  --ring: oklch(0.4 0.13 257);
+  --chart-1: oklch(0.4 0.13 257);
+  --chart-2: oklch(0.72 0.05 80);
+  --chart-3: oklch(0.45 0.03 240);
+  --chart-4: oklch(0.62 0.06 140);
+  --chart-5: oklch(0.35 0.015 60);
+  --sidebar: oklch(0.955 0.009 85);
+  --sidebar-foreground: oklch(0.245 0.012 60);
+  --sidebar-primary: oklch(0.4 0.13 257);
+  --sidebar-primary-foreground: oklch(0.977 0.006 85);
+  --sidebar-accent: oklch(0.93 0.012 80);
+  --sidebar-accent-foreground: oklch(0.29 0.014 60);
+  --sidebar-border: oklch(0.9 0.011 80);
+  --sidebar-ring: oklch(0.4 0.13 257);
+}
+
+.dark {
+  --background: oklch(0.19 0.008 60);
+  --foreground: oklch(0.955 0.006 85);
+  --surface: oklch(0.23 0.009 60);
+  --card: oklch(0.24 0.009 60);
+  --card-foreground: oklch(0.955 0.006 85);
+  --popover: oklch(0.24 0.009 60);
+  --popover-foreground: oklch(0.955 0.006 85);
+  --primary: oklch(0.93 0.008 85);
+  --primary-foreground: oklch(0.22 0.009 60);
+  --secondary: oklch(0.3 0.01 60);
+  --secondary-foreground: oklch(0.955 0.006 85);
+  --muted: oklch(0.3 0.01 60);
+  --muted-foreground: oklch(0.72 0.012 70);
+  --accent: oklch(0.68 0.12 257);
+  --accent-foreground: oklch(0.15 0.01 60);
+  --destructive: oklch(0.62 0.18 25);
+  --destructive-foreground: oklch(0.985 0.005 85);
+  --success: oklch(0.65 0.1 155);
+  --success-foreground: oklch(0.15 0.01 60);
+  --warning: oklch(0.72 0.11 78);
+  --warning-foreground: oklch(0.94 0.035 82);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.68 0.12 257);
+  --sidebar: oklch(0.23 0.009 60);
+  --sidebar-foreground: oklch(0.955 0.006 85);
+  --sidebar-primary: oklch(0.68 0.12 257);
+  --sidebar-primary-foreground: oklch(0.15 0.01 60);
+  --sidebar-accent: oklch(0.3 0.01 60);
+  --sidebar-accent-foreground: oklch(0.955 0.006 85);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.68 0.12 257);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+  }
+}
+
+@utility container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 80rem;
+  padding-inline: 1rem;
+
+  @media (min-width: 768px) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility eyebrow {
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+/* Localized photographic overlays keep type readable without washing out the image. */
+.hero-image-shade {
+  background: radial-gradient(
+    ellipse 94% 82% at 0% 100%,
+    rgb(16 17 18 / 68%) 0%,
+    rgb(16 17 18 / 46%) 32%,
+    rgb(16 17 18 / 14%) 56%,
+    transparent 76%
+  );
+}
+
+.category-image-shade {
+  background: linear-gradient(0deg, rgb(16 17 18 / 68%) 0%, transparent 54%);
+}
+
+.editorial-image-shade {
+  background:
+    linear-gradient(0deg, rgb(16 17 18 / 78%) 0%, rgb(16 17 18 / 22%) 52%, transparent 74%),
+    linear-gradient(90deg, rgb(16 17 18 / 44%) 0%, transparent 68%);
+}
+
+.product-card-actions {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .product-card-actions {
+    opacity: 0;
+  }
+
+  .group:hover .product-card-actions,
+  .group:focus-within .product-card-actions {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 639px) {
+  .hero-image-shade {
+    background: radial-gradient(
+      ellipse 140% 76% at 0% 100%,
+      rgb(16 17 18 / 74%) 0%,
+      rgb(16 17 18 / 48%) 40%,
+      rgb(16 17 18 / 14%) 67%,
+      transparent 86%
+    );
+  }
+
+  .editorial-image-shade {
+    background: linear-gradient(
+      0deg,
+      rgb(16 17 18 / 84%) 0%,
+      rgb(16 17 18 / 38%) 62%,
+      transparent 88%
+    );
+  }
+}
