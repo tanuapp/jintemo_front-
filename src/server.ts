@@ -44,8 +44,52 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+// When frontend and backend are deployed as separate origins (e.g. two
+// standalone Vercel projects), scripts/start.mjs's single-origin gateway
+// doesn't exist to proxy /api, /media, /uploads, /health to the backend —
+// so this server does it instead. In a self-hosted build the gateway
+// intercepts those paths before they ever reach this process, so this
+// branch is simply never hit there.
+const BACKEND_PROXY_PATTERN = /^\/(api|media|uploads|health)(\/|$)/;
+
+async function proxyToBackend(request: Request): Promise<Response> {
+  const backendOrigin = process.env["API_PROXY_TARGET"];
+  if (!backendOrigin) {
+    console.error("API_PROXY_TARGET is not set; cannot reach the backend.");
+    return new Response(JSON.stringify({ error: "Сервертэй холбогдож чадсангүй." }), {
+      status: 502,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
+  }
+  const url = new URL(request.url);
+  const target = new URL(url.pathname + url.search, backendOrigin);
+  const headers = new Headers(request.headers);
+  headers.delete("host");
+  const init: RequestInit & { duplex?: "half" } = {
+    method: request.method,
+    headers,
+    redirect: "manual",
+  };
+  if (!["GET", "HEAD"].includes(request.method)) {
+    init.body = request.body;
+    init.duplex = "half";
+  }
+  try {
+    const upstream = await fetch(target, init);
+    return new Response(upstream.body, { status: upstream.status, headers: upstream.headers });
+  } catch (error) {
+    console.error("Backend proxy failed:", error);
+    return new Response(JSON.stringify({ error: "Сервертэй холбогдож чадсангүй." }), {
+      status: 502,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
+  }
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    if (BACKEND_PROXY_PATTERN.test(new URL(request.url).pathname))
+      return proxyToBackend(request);
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);

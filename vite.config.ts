@@ -1,7 +1,9 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 export default defineConfig({
   tanstackStart: { server: { entry: "server" } },
-  nitro: { preset: "node-server" },
+  // Vercel sets VERCEL=1 during its build; self-host builds keep node-server
+  // (the persistent server scripts/start.mjs expects).
+  nitro: { preset: process.env["VERCEL"] ? "vercel" : "node-server" },
   vite: {
     server: {
       host: "127.0.0.1",
