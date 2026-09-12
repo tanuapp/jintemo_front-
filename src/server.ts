@@ -76,7 +76,13 @@ async function proxyToBackend(request: Request): Promise<Response> {
   }
   try {
     const upstream = await fetch(target, init);
-    return new Response(upstream.body, { status: upstream.status, headers: upstream.headers });
+    // fetch already transparently decompresses the body, but upstream.headers
+    // still reports the original Content-Encoding/Content-Length — forwarding
+    // those as-is makes the browser try (and fail) to decode plain bytes again.
+    const responseHeaders = new Headers(upstream.headers);
+    responseHeaders.delete("content-encoding");
+    responseHeaders.delete("content-length");
+    return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
   } catch (error) {
     console.error("Backend proxy failed:", error);
     return new Response(JSON.stringify({ error: "Сервертэй холбогдож чадсангүй." }), {
