@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import defaults from "../../../shared/default-settings.json";
+import defaults from "../../shared/default-settings.json";
 import { api } from "./api";
 export type SiteSettings = typeof defaults;
 export type ContentItem = {
