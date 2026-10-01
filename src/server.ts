@@ -53,18 +53,16 @@ function isH3SwallowedErrorBody(body: string): boolean {
 const BACKEND_PROXY_PATTERN = /^\/(api|media|uploads|health)(\/|$)/;
 
 async function proxyToBackend(request: Request): Promise<Response> {
-  const backendOrigin = process.env["API_PROXY_TARGET"];
-  if (!backendOrigin) {
-    console.error("API_PROXY_TARGET is not set; cannot reach the backend.");
-    return new Response(JSON.stringify({ error: "Сервертэй холбогдож чадсангүй." }), {
-      status: 502,
-      headers: { "content-type": "application/json; charset=utf-8" },
-    });
-  }
+  const backendOrigin =
+    process.env["API_PROXY_TARGET"]?.trim() || "https://jintemo-backend-new.vercel.app";
   const url = new URL(request.url);
   const target = new URL(url.pathname + url.search, backendOrigin);
   const headers = new Headers(request.headers);
   headers.delete("host");
+  // This is a same-origin gateway. Browsers send Origin on POST requests;
+  // the API sees a server-to-server request, so omit only our own origin.
+  // Keep foreign origins for the backend's CORS checks to reject.
+  if (headers.get("origin") === url.origin) headers.delete("origin");
   const init: RequestInit & { duplex?: "half" } = {
     method: request.method,
     headers,
