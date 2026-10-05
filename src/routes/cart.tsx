@@ -4,7 +4,7 @@ import { CartLine } from "@/components/cart-lines";
 import { Btn, EmptyState, SummaryRow } from "@/components/ui-kit";
 import { useCatalog } from "@/lib/catalog-store";
 import { mnt } from "@/lib/format";
-import { computeTotals, useCart } from "@/lib/store";
+import { computeTotals, extrasLabel, useCart } from "@/lib/store";
 
 export const Route = createFileRoute("/cart")({
   head: () => ({
@@ -75,7 +75,7 @@ function CartPage() {
           <h2 className="font-display text-lg font-bold">Захиалгын дүн</h2>
           <div className="mt-3">
             <SummaryRow label="Бүтээгдэхүүн" value={mnt(totals.goods)} />
-            <SummaryRow label="Цавуу" value={mnt(totals.glue)} />
+            <SummaryRow label={extrasLabel(items, glues)} value={mnt(totals.glue)} />
             <SummaryRow label="Хүргэлт" value="Дараагийн алхамд" muted />
             <SummaryRow label="Нийт" value={mnt(totals.total)} strong />
           </div>

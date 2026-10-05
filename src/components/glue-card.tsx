@@ -3,7 +3,7 @@ import { ArrowRight, Heart, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { Badge, Btn } from "@/components/ui-kit";
 import { mnt } from "@/lib/format";
-import type { GlueProduct } from "@/lib/products";
+import { PRICE_UNIT_LABELS, glueSpec, priceUnitOf, type GlueProduct } from "@/lib/products";
 import { useCart } from "@/lib/store";
 import { useUi } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,8 @@ export function GlueCard({ product }: { product: GlueProduct }) {
   const { addItem, ready: cartReady } = useCart();
   const { wishlistIds, toggleWishlist } = useUi();
   const saved = wishlistIds.includes(product.slug);
+  const unit = PRICE_UNIT_LABELS[priceUnitOf(product)];
+  const spec = glueSpec(product) || product.short;
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-md border border-border/80 bg-card transition-colors hover:border-foreground/20">
@@ -21,14 +23,16 @@ export function GlueCard({ product }: { product: GlueProduct }) {
           params={{ slug: product.slug }}
           className="relative block h-[230px] overflow-hidden bg-surface"
         >
-          <img
-            src={product.image}
-            alt={product.name}
-            loading="lazy"
-            width={900}
-            height={900}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-          />
+          {product.image && (
+            <img
+              src={product.image}
+              alt={product.name}
+              loading="lazy"
+              width={900}
+              height={900}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            />
+          )}
         </Link>
         <span className="pointer-events-none absolute left-3 top-3 flex gap-2">
           {!product.inStock && <Badge tone="soldout">Дууссан</Badge>}
@@ -61,13 +65,11 @@ export function GlueCard({ product }: { product: GlueProduct }) {
           </Link>
         </div>
 
-        <p className="text-[13px] text-muted-foreground">
-          {product.packageSize} · {product.coverage} m² / сав
-        </p>
+        {spec && <p className="text-[13px] text-muted-foreground">{spec}</p>}
 
         <div className="mt-auto flex flex-wrap items-baseline gap-2 pt-1">
           <p className="font-display text-[19px] font-bold">{mnt(product.price)}</p>
-          <span className="text-[13px] font-medium text-muted-foreground">/ сав</span>
+          <span className="text-[13px] font-medium text-muted-foreground">/ {unit}</span>
         </div>
 
         <p
@@ -86,7 +88,7 @@ export function GlueCard({ product }: { product: GlueProduct }) {
             disabled={!product.inStock || !cartReady}
             onClick={() => {
               addItem({ kind: "glue", glueSlug: product.slug, quantity: 1 });
-              toast.success("Сагсанд нэмэгдлээ", { description: `${product.name} · 1 сав` });
+              toast.success("Сагсанд нэмэгдлээ", { description: `${product.name} · 1 ${unit}` });
             }}
           >
             <ShoppingBag className="h-4 w-4" />

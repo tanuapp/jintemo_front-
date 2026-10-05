@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui-kit";
 import { mnt } from "@/lib/format";
 import {
+  PRICE_UNIT_LABELS,
+  formatSize,
+  priceUnitOf,
   productInStock,
   variantInStock,
   variantPrice,
@@ -174,8 +177,7 @@ export function ProductCard({
         )}
 
         <p className="text-[13px] text-muted-foreground">
-          {product.tileSize * 100}×{product.tileSize * 100} см ·{" "}
-          {variantThickness(product, variant)}
+          {[formatSize(product), variantThickness(product, variant)].filter(Boolean).join(" · ")}
         </p>
 
         {appearance === "editorial" && (
@@ -196,7 +198,9 @@ export function ProductCard({
           )}
         >
           <span className="font-display text-[19px] font-bold">{mnt(price)}</span>
-          <span className="text-[13px] font-medium text-muted-foreground">/ ширхэг</span>
+          <span className="text-[13px] font-medium text-muted-foreground">
+            / {PRICE_UNIT_LABELS[priceUnitOf(product)]}
+          </span>
           {showOldPrice && (
             <span className="text-sm text-muted-foreground line-through">
               {mnt(product.oldPrice!)}

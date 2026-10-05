@@ -8,7 +8,14 @@ import { ContentBlocks } from "@/components/content-blocks";
 import { ProductCard } from "@/components/product-card";
 import { useCatalog } from "@/lib/catalog-store";
 import { mnt } from "@/lib/format";
-import { variantPrice, variantThickness } from "@/lib/products";
+import {
+  PRICE_UNIT_LABELS,
+  formatSize,
+  priceUnitOf,
+  variantPrice,
+  variantThickness,
+} from "@/lib/products";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -47,9 +54,22 @@ function SectionHeading({ children, linkLabel }: { children: React.ReactNode; li
 }
 
 function Home() {
-  const { products, sections } = useCatalog();
+  const { products, glues, sections, types } = useCatalog();
   const { settings } = useSettings();
   const availableProducts = products.filter((product) => product.variants.length > 0);
+  // Every active type that has something to show, in the admin's order.
+  const typeCards = types.flatMap((type) => {
+    const carpet = availableProducts.find((p) => p.typeId === type.id);
+    const item = glues.find((g) => g.typeId === type.id);
+    if (!carpet && !item) return [];
+    const image =
+      type.image ||
+      carpet?.variants[0]?.image ||
+      item?.image ||
+      (type.kind === "carpet" ? settings.carpetImage : settings.glueImage) ||
+      "";
+    return [{ type, image }];
+  });
   const featured = [...availableProducts].sort((a, b) => b.popularity - a.popularity).slice(0, 6);
   const heroProduct = featured[0];
   const heroVariant = heroProduct?.variants[0];
@@ -124,12 +144,16 @@ function Home() {
                     {heroProduct.name}
                   </span>
                   <span className="mt-1 text-[11px] text-muted-foreground">
-                    {heroProduct.tileSize * 100}×{heroProduct.tileSize * 100} см ·{" "}
-                    {variantThickness(heroProduct, heroVariant)}
+                    {[formatSize(heroProduct), variantThickness(heroProduct, heroVariant)]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                   <span className="mt-1.5 text-sm font-bold">
                     {mnt(variantPrice(heroProduct, heroVariant))}
-                    <span className="font-medium text-muted-foreground"> / ширхэг</span>
+                    <span className="font-medium text-muted-foreground">
+                      {" "}
+                      / {PRICE_UNIT_LABELS[priceUnitOf(heroProduct)]}
+                    </span>
                   </span>
                   <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-accent">
                     Дэлгэрэнгүй{" "}
@@ -147,50 +171,38 @@ function Home() {
       <section className="container-page pt-16 sm:pt-20">
         <SectionHeading linkLabel="Бүх бүтээгдэхүүн">{settings.categoryTitle}</SectionHeading>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 sm:gap-5">
-          <Link
-            to="/products"
-            search={{ category: "carpet" }}
-            className="group relative h-[230px] overflow-hidden rounded-md bg-surface sm:h-[250px]"
-          >
-            <img
-              src={settings.carpetImage}
-              alt="Модуль хивсний сонголтууд"
-              loading="lazy"
-              width={1200}
-              height={900}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.025]"
-            />
-            <div className="category-image-shade absolute inset-0" />
-            <span className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 p-6 text-white sm:p-8">
-              <span className="font-display text-2xl font-bold">{settings.carpetLabel}</span>
-              <span className="grid h-11 w-11 place-items-center rounded-full border border-white/45 bg-foreground/30 backdrop-blur-sm transition-transform group-hover:translate-x-1">
-                <ArrowRight className="h-5 w-5" />
+        <div
+          className={cn(
+            "mt-8 grid gap-4 sm:grid-cols-2 sm:gap-5",
+            typeCards.length > 2 && "lg:grid-cols-3",
+          )}
+        >
+          {typeCards.map(({ type, image }) => (
+            <Link
+              key={type.id}
+              to="/products"
+              search={{ category: type.slug }}
+              className="group relative h-[230px] overflow-hidden rounded-md bg-surface sm:h-[250px]"
+            >
+              {image && (
+                <img
+                  src={image}
+                  alt={type.name}
+                  loading="lazy"
+                  width={1200}
+                  height={900}
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.025]"
+                />
+              )}
+              <div className="category-image-shade absolute inset-0" />
+              <span className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 p-6 text-white sm:p-8">
+                <span className="font-display text-2xl font-bold">{type.name}</span>
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/45 bg-foreground/30 backdrop-blur-sm transition-transform group-hover:translate-x-1">
+                  <ArrowRight className="h-5 w-5" />
+                </span>
               </span>
-            </span>
-          </Link>
-
-          <Link
-            to="/products"
-            search={{ category: "glue" }}
-            className="group relative h-[230px] overflow-hidden rounded-md bg-surface sm:h-[250px]"
-          >
-            <img
-              src={settings.glueImage}
-              alt="Модуль хивсний суурилуулалтын цавуу"
-              loading="lazy"
-              width={1200}
-              height={900}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.025]"
-            />
-            <div className="category-image-shade absolute inset-0" />
-            <span className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-4 p-6 text-white sm:p-8">
-              <span className="font-display text-2xl font-bold">{settings.glueLabel}</span>
-              <span className="grid h-11 w-11 place-items-center rounded-full border border-white/45 bg-foreground/30 backdrop-blur-sm transition-transform group-hover:translate-x-1">
-                <ArrowRight className="h-5 w-5" />
-              </span>
-            </span>
-          </Link>
+            </Link>
+          ))}
         </div>
 
         {settings.showCollections && collections.length > 0 && (

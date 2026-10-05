@@ -2,8 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ChevronUp, ChevronDown, Pencil } from "lucide-react";
 import { useCatalog } from "@/lib/catalog-store";
-import { mnt } from "@/lib/format";
+import { formatPrice, priceUnitOf } from "@/lib/products";
 import { Btn } from "@/components/ui-kit";
+import { ProductTypesPanel } from "@/components/admin/product-types";
 import {
   PageTitle,
   Panel,
@@ -22,14 +23,19 @@ function Catalog() {
   const [edit, setEdit] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   if (c.error) return <DataError error={c.error} retry={c.refresh} />;
   if (!c.ready) return <Loading />;
-  const all = c.catalog.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()));
+  const all = c.catalog.filter(
+    (p) =>
+      p.name.toLowerCase().includes(search.toLowerCase()) &&
+      (!typeFilter || p.typeId === typeFilter),
+  );
   return (
     <>
       <PageTitle
         title="Бүтээгдэхүүн"
-        description="Хивс, цавуу, ангилал болон өнгөний үлдэгдлийг удирдана."
+        description="Бүтээгдэхүүний төрөл, ангилал, бүтээгдэхүүн болон өнгөний хувилбаруудыг удирдана."
         action={
           <Link
             to="/admin/products/new"
@@ -39,6 +45,7 @@ function Catalog() {
           </Link>
         }
       />
+      <ProductTypesPanel />
       <Panel className="mb-6">
         <h2 className="mb-4 text-lg font-bold">Хивсний ангиллууд</h2>
         <div className="flex flex-wrap gap-2">
@@ -121,13 +128,28 @@ function Catalog() {
         </form>
       </Panel>
       <Panel>
-        <input
-          aria-label="Бүтээгдэхүүн хайх"
-          className={`${inputClass} mb-5 max-w-sm`}
-          placeholder="Бүтээгдэхүүн хайх…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="mb-5 flex flex-wrap gap-3">
+          <input
+            aria-label="Бүтээгдэхүүн хайх"
+            className={`${inputClass} max-w-sm`}
+            placeholder="Бүтээгдэхүүн хайх…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            aria-label="Төрлөөр шүүх"
+            className={`${inputClass} max-w-56`}
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+          >
+            <option value="">Бүх төрөл</option>
+            {c.types.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="text-muted-foreground">
@@ -162,8 +184,10 @@ function Catalog() {
                       </div>
                     </div>
                   </td>
-                  <td>{p.kind === "carpet" ? "Хивс" : "Цавуу"}</td>
-                  <td>{mnt(p.kind === "carpet" ? p.basePrice : p.price)}</td>
+                  <td>{c.getType(p.typeId)?.name ?? "—"}</td>
+                  <td>
+                    {formatPrice(p.kind === "carpet" ? p.basePrice : p.price, priceUnitOf(p))}
+                  </td>
                   <td>
                     {p.kind === "carpet"
                       ? p.variants.reduce((s, v) => s + v.stock, 0)

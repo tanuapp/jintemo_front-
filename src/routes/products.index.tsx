@@ -20,6 +20,9 @@ import {
 import { Btn, EmptyState } from "@/components/ui-kit";
 import { useCatalog } from "@/lib/catalog-store";
 import {
+  PRICE_UNIT_LABELS,
+  formatSize,
+  priceUnitOf,
   productInStock,
   variantInStock,
   variantPrice,
@@ -30,7 +33,8 @@ import {
 import { useUi } from "@/lib/ui-store";
 import { cn } from "@/lib/utils";
 
-type Category = "all" | "carpet" | "glue";
+/** "all", or the slug of an admin-managed product type ("carpet" and "glue" are built in). */
+type Category = string;
 type Availability = "all" | "available" | "sold-out";
 type Sort = "new" | "asc" | "desc" | "pop";
 
@@ -144,12 +148,7 @@ export const Route = createFileRoute("/products/")({
     room: listSearchValue(search["room"]),
     section: listSearchValue(search["section"]),
     sections: listSearchValue(search["sections"]),
-    category:
-      search["category"] === "carpet" ||
-      search["category"] === "glue" ||
-      search["category"] === "all"
-        ? (search["category"] as Category)
-        : undefined,
+    category: listSearchValue(search["category"]),
     q: listSearchValue(search["q"]),
     availability:
       search["availability"] === "available" || search["availability"] === "sold-out"
@@ -187,7 +186,7 @@ export const Route = createFileRoute("/products/")({
 function ProductList() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { products: catalogProducts, sections, glues: glueProducts } = useCatalog();
+  const { products: catalogProducts, sections, glues: glueProducts, types } = useCatalog();
   const { compareIds, openCompareView } = useUi();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -196,6 +195,7 @@ function ProductList() {
     [catalogProducts],
   );
   const category = search.category ?? "all";
+  const selectedType = types.find((type) => type.slug === category);
   const availability = search.availability ?? "all";
   const sort = search.sort ?? "new";
   const query = (search.q ?? "").trim().toLowerCase();
@@ -221,9 +221,20 @@ function ProductList() {
     });
   };
 
+  // Filter options come from the selected type's products only.
+  const typeProducts = useMemo(
+    () => (category === "all" ? products : products.filter((p) => p.typeId === selectedType?.id)),
+    [products, category, selectedType],
+  );
+  const typeGlues = useMemo(
+    () =>
+      category === "all" ? glueProducts : glueProducts.filter((g) => g.typeId === selectedType?.id),
+    [glueProducts, category, selectedType],
+  );
+
   const allColors = useMemo(() => {
     const colors = new Map<string, { id: string; name: string; hex: string }>();
-    for (const product of products) {
+    for (const product of typeProducts) {
       for (const variant of product.variants) {
         if (!colors.has(variant.id)) {
           colors.set(variant.id, { id: variant.id, name: variant.name, hex: variant.hex });
@@ -231,31 +242,34 @@ function ProductList() {
       }
     }
     return [...colors.values()];
-  }, [products]);
+  }, [typeProducts]);
 
   const thicknessOptions = useMemo(
     () =>
-      [...new Set(products.flatMap((p) => p.variants.map((v) => variantThickness(p, v))))].sort(
-        (a, b) => parseFloat(a) - parseFloat(b),
-      ),
-    [products],
+      [...new Set(typeProducts.flatMap((p) => p.variants.map((v) => variantThickness(p, v))))]
+        .filter(Boolean)
+        .sort((a, b) => parseFloat(a) - parseFloat(b)),
+    [typeProducts],
   );
   const sizeOptions = useMemo(
-    () => [...new Set(products.map((p) => `${p.tileSize * 100}×${p.tileSize * 100} см`))],
-    [products],
+    () => [...new Set(typeProducts.map(formatSize))].filter(Boolean),
+    [typeProducts],
   );
-  const materialOptions = useMemo(() => [...new Set(products.map((p) => p.material))], [products]);
+  const materialOptions = useMemo(
+    () => [...new Set(typeProducts.map((p) => p.material))].filter(Boolean),
+    [typeProducts],
+  );
   const glueTypeOptions = useMemo(() => {
     const values = new Map<string, string>();
-    for (const glue of glueProducts) values.set(glue.glueType, glue.glueTypeLabel);
+    for (const glue of typeGlues) if (glue.glueType) values.set(glue.glueType, glue.glueTypeLabel);
     return [...values.entries()].map(([id, label]) => ({ id, label }));
-  }, [glueProducts]);
+  }, [typeGlues]);
   const coverageOptions = useMemo(
     () =>
-      [...new Set(glueProducts.map((glue) => String(glue.coverage)))].sort(
-        (a, b) => Number(a) - Number(b),
-      ),
-    [glueProducts],
+      [
+        ...new Set(typeGlues.flatMap((glue) => (glue.coverage ? [String(glue.coverage)] : []))),
+      ].sort((a, b) => Number(a) - Number(b)),
+    [typeGlues],
   );
 
   const filteredCarpets = useMemo<CarpetResult[]>(() => {
@@ -271,10 +285,7 @@ function ProductList() {
         return [];
       }
       if (selectedSections.length && !selectedSections.includes(product.sectionId)) return [];
-      if (
-        selectedSizes.length &&
-        !selectedSizes.includes(`${product.tileSize * 100}×${product.tileSize * 100} см`)
-      ) {
+      if (selectedSizes.length && !selectedSizes.includes(formatSize(product))) {
         return [];
       }
       if (selectedMaterials.length && !selectedMaterials.includes(product.material)) return [];
@@ -360,7 +371,10 @@ function ProductList() {
         return [];
       }
       if (selectedGlueTypes.length && !selectedGlueTypes.includes(product.glueType)) return [];
-      if (selectedCoverages.length && !selectedCoverages.includes(String(product.coverage)))
+      if (
+        selectedCoverages.length &&
+        (!product.coverage || !selectedCoverages.includes(String(product.coverage)))
+      )
         return [];
       if (typeof search.minPrice === "number" && product.price < search.minPrice) return [];
       if (typeof search.maxPrice === "number" && product.price > search.maxPrice) return [];
@@ -381,12 +395,9 @@ function ProductList() {
   ]);
 
   const visibleResults = useMemo(() => {
-    const entries: Result[] =
-      category === "carpet"
-        ? filteredCarpets
-        : category === "glue"
-          ? filteredGlue
-          : [...filteredCarpets, ...filteredGlue];
+    const entries: Result[] = [...filteredCarpets, ...filteredGlue].filter(
+      (entry) => category === "all" || entry.product.typeId === selectedType?.id,
+    );
 
     return [...entries].sort((a, b) => {
       const priceA =
@@ -408,7 +419,7 @@ function ProductList() {
       if (sort === "pop") return b.product.popularity - a.product.popularity;
       return b.product.createdAt.localeCompare(a.product.createdAt);
     });
-  }, [category, filteredCarpets, filteredGlue, sort]);
+  }, [category, selectedType, filteredCarpets, filteredGlue, sort]);
 
   const activeFilterCount =
     (category !== "all" ? 1 : 0) +
@@ -429,24 +440,22 @@ function ProductList() {
     navigate({ to: "/products", search: { q: search.q, sort: search.sort }, replace: true });
   };
 
-  const categoryPrices =
-    category === "carpet"
-      ? products.flatMap((p) => p.variants.map((v) => variantPrice(p, v)))
-      : category === "glue"
-        ? glueProducts.map((g) => g.price)
-        : [
-            ...products.flatMap((p) => p.variants.map((v) => variantPrice(p, v))),
-            ...glueProducts.map((g) => g.price),
-          ];
+  const categoryPrices = [
+    ...typeProducts.flatMap((p) => p.variants.map((v) => variantPrice(p, v))),
+    ...typeGlues.map((g) => g.price),
+  ];
   const priceFloor = Math.min(...(categoryPrices.length ? categoryPrices : [0]));
   const priceCeiling = Math.max(...(categoryPrices.length ? categoryPrices : [0]));
-  const priceUnit = category === "carpet" ? "₮ / ширхэг" : category === "glue" ? "₮ / сав" : "₮";
+  // Prices are per unit; name the unit when every product in view shares one.
+  const units = new Set([...typeProducts, ...typeGlues].map(priceUnitOf));
+  const [onlyUnit] = units;
+  const priceUnit = units.size === 1 && onlyUnit ? `₮ / ${PRICE_UNIT_LABELS[onlyUnit]}` : "₮";
 
   const chips: { key: string; label: string; remove: () => void }[] = [];
   if (category !== "all") {
     chips.push({
       key: "category",
-      label: category === "carpet" ? "Хивс" : "Цавуу",
+      label: selectedType?.name ?? category,
       remove: () => updateSearch({ category: "all" }),
     });
   }
@@ -566,18 +575,19 @@ function ProductList() {
               label="Бүх бүтээгдэхүүн"
               count={filteredCarpets.length + filteredGlue.length}
             />
-            <FilterChoice
-              selected={category === "carpet"}
-              onSelect={() => updateSearch({ category: "carpet" })}
-              label="Хивс"
-              count={filteredCarpets.length}
-            />
-            <FilterChoice
-              selected={category === "glue"}
-              onSelect={() => updateSearch({ category: "glue" })}
-              label="Цавуу"
-              count={filteredGlue.length}
-            />
+            {types.map((type) => (
+              <FilterChoice
+                key={type.id}
+                selected={category === type.slug}
+                onSelect={() => updateSearch({ category: type.slug })}
+                label={type.name}
+                count={
+                  [...filteredCarpets, ...filteredGlue].filter(
+                    (entry) => entry.product.typeId === type.id,
+                  ).length
+                }
+              />
+            ))}
           </AccordionContent>
         </AccordionItem>
 
@@ -651,7 +661,7 @@ function ProductList() {
           </AccordionContent>
         </AccordionItem>
 
-        {category === "carpet" && (
+        {selectedType?.kind === "carpet" && (
           <>
             <AccordionItem value="color">
               <AccordionTrigger className="hover:no-underline">Өнгө</AccordionTrigger>
@@ -667,7 +677,7 @@ function ProductList() {
                 ))}
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="thickness">
+            <AccordionItem value="thickness" hidden={!thicknessOptions.length}>
               <AccordionTrigger className="hover:no-underline">Зузаан</AccordionTrigger>
               <AccordionContent className="space-y-1">
                 {thicknessOptions.map((value) => (
@@ -680,7 +690,7 @@ function ProductList() {
                 ))}
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="size">
+            <AccordionItem value="size" hidden={!sizeOptions.length}>
               <AccordionTrigger className="hover:no-underline">Хэмжээ</AccordionTrigger>
               <AccordionContent className="space-y-1">
                 {sizeOptions.map((value) => (
@@ -693,7 +703,7 @@ function ProductList() {
                 ))}
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="material">
+            <AccordionItem value="material" hidden={!materialOptions.length}>
               <AccordionTrigger className="hover:no-underline">Материал</AccordionTrigger>
               <AccordionContent className="space-y-1">
                 {materialOptions.map((value) => (
@@ -724,9 +734,9 @@ function ProductList() {
           </>
         )}
 
-        {category === "glue" && (
+        {selectedType?.kind === "glue" && (
           <>
-            <AccordionItem value="glue-type">
+            <AccordionItem value="glue-type" hidden={!glueTypeOptions.length}>
               <AccordionTrigger className="hover:no-underline">Цавууны төрөл</AccordionTrigger>
               <AccordionContent className="space-y-1">
                 {glueTypeOptions.map((type) => (
@@ -739,7 +749,7 @@ function ProductList() {
                 ))}
               </AccordionContent>
             </AccordionItem>
-            <AccordionItem value="coverage">
+            <AccordionItem value="coverage" hidden={!coverageOptions.length}>
               <AccordionTrigger className="hover:no-underline">Хамрах талбай</AccordionTrigger>
               <AccordionContent className="space-y-1">
                 {coverageOptions.map((value) => (
@@ -779,7 +789,7 @@ function ProductList() {
               бүтээгдэхүүн
             </p>
             <div className="flex items-center gap-2">
-              {compareIds.length > 0 && category !== "glue" && (
+              {compareIds.length > 0 && selectedType?.kind !== "glue" && (
                 <button
                   type="button"
                   onClick={openCompareView}

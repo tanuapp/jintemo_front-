@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Btn, EmptyState, SummaryRow } from "@/components/ui-kit";
 import { useCatalog } from "@/lib/catalog-store";
 import { mnt } from "@/lib/format";
-import { computeTotals, useCart } from "@/lib/store";
+import { computeTotals, extrasLabel, useCart } from "@/lib/store";
 import { useUi } from "@/lib/ui-store";
 
 export function CartDrawer() {
@@ -53,7 +53,7 @@ export function CartDrawer() {
                 <h3 className="font-display text-sm font-bold">Захиалгын дүн</h3>
                 <div className="mt-2">
                   <SummaryRow label="Бүтээгдэхүүн" value={mnt(totals.goods)} />
-                  <SummaryRow label="Цавуу" value={mnt(totals.glue)} />
+                  <SummaryRow label={extrasLabel(items, glues)} value={mnt(totals.glue)} />
                   <SummaryRow label="Хүргэлт" value="Дараагийн алхамд" muted />
                   <SummaryRow label="Нийт" value={mnt(totals.total)} strong />
                 </div>

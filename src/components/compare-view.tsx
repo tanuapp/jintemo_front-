@@ -4,8 +4,14 @@ import { Fragment, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Btn } from "@/components/ui-kit";
 import { useCatalog } from "@/lib/catalog-store";
-import { mnt } from "@/lib/format";
-import { productInStock, variantPrice, type Product } from "@/lib/products";
+import {
+  formatPrice,
+  formatSize,
+  priceUnitOf,
+  productInStock,
+  variantPrice,
+  type Product,
+} from "@/lib/products";
 import { useUi } from "@/lib/ui-store";
 
 type Row = { label: string; render: (p: Product) => ReactNode };
@@ -26,9 +32,13 @@ const rows: Row[] = [
   { label: "Нэр", render: (p) => <span className="font-display font-bold">{p.name}</span> },
   {
     label: "Үнэ",
-    render: (p) => <span className="font-semibold">{mnt(variantPrice(p, p.variants[0]!))}</span>,
+    render: (p) => (
+      <span className="font-semibold">
+        {formatPrice(variantPrice(p, p.variants[0]!), priceUnitOf(p))}
+      </span>
+    ),
   },
-  { label: "Хэмжээ", render: (p) => `${p.tileSize * 100}×${p.tileSize * 100} см` },
+  { label: "Хэмжээ", render: (p) => formatSize(p) || "—" },
   { label: "Материал", render: (p) => p.material },
   {
     label: "Өнгө",

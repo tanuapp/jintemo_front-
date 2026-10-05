@@ -15,8 +15,8 @@ import { Btn, Field, OptionCard, SummaryRow, TextArea, TextInput } from "@/compo
 import { useAuth, type Address } from "@/lib/auth";
 import { useCatalog } from "@/lib/catalog-store";
 import { m2, mnt } from "@/lib/format";
-import { INSTALL_PRICE_TBD } from "@/lib/products";
-import { computeTotals, itemArea, itemTotal, useCart } from "@/lib/store";
+import { INSTALL_PRICE_TBD, PRICE_UNIT_LABELS, priceUnitOf } from "@/lib/products";
+import { computeTotals, extrasLabel, itemArea, itemTotal, useCart } from "@/lib/store";
 import { errorMessage, ApiError } from "@/lib/api";
 import { useSettings, installationRate } from "@/lib/settings";
 import { AuthPanel } from "@/components/profile-drawer";
@@ -598,7 +598,10 @@ function Checkout() {
                               </div>
                               <p className="mt-0.5 text-sm text-muted-foreground">
                                 {variant ? `${variant.name} · ${variant.code} · ` : ""}
-                                {m2(itemArea(item, products))} · {item.pieces} ширхэг
+                                {itemArea(item, products) > 0
+                                  ? `${m2(itemArea(item, products))} · `
+                                  : ""}
+                                {item.pieces} ширхэг
                               </p>
                             </div>
                           );
@@ -611,7 +614,7 @@ function Checkout() {
                             className="border-b border-border pb-3 last:border-0 last:pb-0"
                           >
                             <SummaryRow
-                              label={`${g.name} · ${item.quantity} сав`}
+                              label={`${g.name} · ${item.quantity} ${PRICE_UNIT_LABELS[priceUnitOf(g)]}`}
                               value={mnt(itemTotal(item, products, glues))}
                               muted
                             />
@@ -676,7 +679,7 @@ function Checkout() {
                 <h2 className="font-display text-base font-bold">Захиалгын дүн</h2>
                 <div className="mt-4">
                   <SummaryRow label="Бүтээгдэхүүн" value={mnt(totals.goods)} />
-                  <SummaryRow label="Цавуу" value={mnt(totals.glue)} />
+                  <SummaryRow label={extrasLabel(items, glues)} value={mnt(totals.glue)} />
                   <SummaryRow
                     label="Хүргэлт"
                     value={paidDelivery ? mnt(totals.shipping) : "Үнэгүй"}

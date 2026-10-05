@@ -13,6 +13,7 @@ import {
   ExternalLink,
   History,
   Loader2,
+  Warehouse,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -33,6 +34,7 @@ import { useSettings } from "@/lib/settings";
 const links = [
   ["/admin", "Ерөнхий", LayoutDashboard],
   ["/admin/catalog", "Бүтээгдэхүүн", Package],
+  ["/admin/inventory", "Үлдэгдэл", Warehouse],
   ["/admin/orders", "Захиалгууд", ShoppingBag],
   ["/admin/users", "Хэрэглэгчид", Users],
   ["/admin/content", "Контент", Newspaper],

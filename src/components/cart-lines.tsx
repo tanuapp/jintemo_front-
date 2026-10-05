@@ -3,7 +3,15 @@ import { Droplets, Trash2 } from "lucide-react";
 import { QuantityStepper } from "@/components/ui-kit";
 import { useCatalog } from "@/lib/catalog-store";
 import { m2, mnt } from "@/lib/format";
-import { variantThickness } from "@/lib/products";
+import {
+  formatPrice,
+  formatSize,
+  glueSpec,
+  pieceArea,
+  priceUnitOf,
+  variantPrice,
+  variantThickness,
+} from "@/lib/products";
 import { itemTotal, useCart, type CartItem } from "@/lib/store";
 
 export function CarpetLine({
@@ -41,9 +49,15 @@ export function CarpetLine({
                 Өнгө: {variant.name} · Код: {variant.code}
               </p>
               <p className="text-sm text-muted-foreground">
-                {product.tileSize * 100}×{product.tileSize * 100} см · Зузаан:{" "}
-                {variantThickness(product, variant)} ·{" "}
-                {m2(item.pieces * product.tileSize * product.tileSize)}
+                {[
+                  formatSize(product),
+                  variantThickness(product, variant) &&
+                    `Зузаан: ${variantThickness(product, variant)}`,
+                  pieceArea(product) > 0 && m2(item.pieces * pieceArea(product)),
+                  formatPrice(variantPrice(product, variant), priceUnitOf(product)),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             </div>
             <button
@@ -75,7 +89,7 @@ export function GlueLine({
   onRemove: () => void;
 }) {
   const { updateItem } = useCart();
-  const { products, glues, getGlueProduct } = useCatalog();
+  const { products, glues, getGlueProduct, getType } = useCatalog();
   const glue = getGlueProduct(item.glueSlug);
   if (!glue) return <UnavailableLine name={item.glueSlug} onRemove={onRemove} />;
   return (
@@ -94,8 +108,15 @@ export function GlueLine({
                 <h2 className="truncate font-display font-bold">{glue.name}</h2>
               </Link>
               <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Droplets className="h-3.5 w-3.5" /> Цавуу · {glue.glueTypeLabel} ·{" "}
-                {glue.packageSize}
+                <Droplets className="h-3.5 w-3.5 shrink-0" />{" "}
+                {[
+                  getType(glue.typeId)?.name,
+                  glue.glueTypeLabel,
+                  glueSpec(glue),
+                  formatPrice(glue.price, priceUnitOf(glue)),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
             </div>
             <button

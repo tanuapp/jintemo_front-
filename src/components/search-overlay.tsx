@@ -2,15 +2,14 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCatalog } from "@/lib/catalog-store";
-import { mnt } from "@/lib/format";
-import { variantPrice } from "@/lib/products";
+import { formatPrice, priceUnitOf, variantPrice } from "@/lib/products";
 import { cn } from "@/lib/utils";
 
 export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { catalog } = useCatalog();
+  const { catalog, getType } = useCatalog();
 
   useEffect(() => {
     if (open) {
@@ -26,7 +25,9 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
     if (!needle) return [];
     return catalog
       .filter((c) => c.kind === "glue" || c.variants.length > 0)
-      .filter((c) => c.name.toLowerCase().includes(needle) || c.short.toLowerCase().includes(needle))
+      .filter(
+        (c) => c.name.toLowerCase().includes(needle) || c.short.toLowerCase().includes(needle),
+      )
       .slice(0, 6);
   }, [catalog, q]);
 
@@ -72,21 +73,29 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
                 className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-secondary/60"
               >
                 <span className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-surface">
-                  <img
-                    src={r.kind === "carpet" ? r.variants[0]!.image : r.image}
-                    alt=""
-                    loading="lazy"
-                    className={cn("h-full w-full", r.kind === "carpet" ? "object-contain p-1" : "object-cover")}
-                  />
+                  {(r.kind === "carpet" ? r.variants[0]!.image : r.image) && (
+                    <img
+                      src={r.kind === "carpet" ? r.variants[0]!.image : r.image}
+                      alt=""
+                      loading="lazy"
+                      className={cn(
+                        "h-full w-full",
+                        r.kind === "carpet" ? "object-contain p-1" : "object-cover",
+                      )}
+                    />
+                  )}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{r.name}</span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {r.kind === "carpet" ? "Хивс" : "Цавуу"} · {r.short}
+                    {[getType(r.typeId)?.name, r.short].filter(Boolean).join(" · ")}
                   </span>
                 </span>
                 <span className="shrink-0 text-sm font-semibold">
-                  {mnt(r.kind === "carpet" ? variantPrice(r, r.variants[0]!) : r.price)}
+                  {formatPrice(
+                    r.kind === "carpet" ? variantPrice(r, r.variants[0]!) : r.price,
+                    priceUnitOf(r),
+                  )}
                 </span>
               </Link>
             ))}
@@ -100,7 +109,9 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
         )}
 
         {q.trim() && results.length === 0 && (
-          <p className="container-page px-0 py-6 text-center text-sm text-muted-foreground">Илэрц олдсонгүй.</p>
+          <p className="container-page px-0 py-6 text-center text-sm text-muted-foreground">
+            Илэрц олдсонгүй.
+          </p>
         )}
       </div>
     </div>

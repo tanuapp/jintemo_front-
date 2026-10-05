@@ -17,6 +17,12 @@ import {
 import { useCatalog } from "@/lib/catalog-store";
 import { m2, mnt } from "@/lib/format";
 import {
+  formatPrice,
+  formatSize,
+  isGlue,
+  pieceArea,
+  pieceFactor,
+  priceUnitOf,
   recommendGlueQty,
   variantInStock,
   variantPrice,
@@ -110,35 +116,41 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
   const [zoom, setZoom] = useState(false);
   const [showAllColors, setShowAllColors] = useState(false);
 
+  // `price` is per price unit (m², metre or piece); the cart charges whole pieces.
   const price = variantPrice(product, variant);
+  const unit = priceUnitOf(product);
+  const onePiece = Math.round(price * pieceFactor(product));
+  const size = formatSize(product);
   const thickness = variantThickness(product, variant);
   const inStock = variantInStock(variant);
+  const glues = glueProducts.filter(isGlue);
 
   const [length, setLength] = useState("4.0");
   const [width, setWidth] = useState("3.5");
-  const tileArea = product.tileSize * product.tileSize;
+  // Without a size there is nothing to calculate from; the customer picks a quantity.
+  const tileArea = pieceArea(product);
 
   // Area is used exactly as measured — no automatic waste percentage is added.
   // Any cutting allowance is discussed with the customer separately.
   const roomArea = (parseFloat(length) || 0) * (parseFloat(width) || 0);
-  const suggestedPieces = Math.max(1, Math.ceil(roomArea / tileArea));
+  const suggestedPieces = tileArea ? Math.max(1, Math.ceil(roomArea / tileArea)) : 1;
 
   const [pieces, setPieces] = useState(suggestedPieces);
-  const [manual, setManual] = useState(false);
+  const [manual, setManual] = useState(!tileArea);
   const effectivePieces = manual ? pieces : suggestedPieces;
 
   const [glueChoice, setGlueChoice] = useState<"none" | string>("none");
-  const selectedGlue =
-    glueChoice === "none" ? undefined : glueProducts.find((g) => g.slug === glueChoice);
+  const selectedGlue = glueChoice === "none" ? undefined : glues.find((g) => g.slug === glueChoice);
   const [glueQty, setGlueQty] = useState(1);
   const [glueManual, setGlueManual] = useState(false);
+  const glueArea = tileArea ? roomArea : 0;
 
   useEffect(() => {
     if (glueManual || !selectedGlue) return;
-    setGlueQty(recommendGlueQty(roomArea, selectedGlue.coverage));
-  }, [selectedGlue, roomArea, glueManual]);
+    setGlueQty(recommendGlueQty(glueArea, selectedGlue.coverage));
+  }, [selectedGlue, glueArea, glueManual]);
 
-  const goods = price * effectivePieces;
+  const goods = Math.round(price * pieceFactor(product) * effectivePieces);
   const glueTotal = selectedGlue ? selectedGlue.price * glueQty : 0;
   const total = goods + glueTotal;
 
@@ -249,8 +261,14 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
           <h1 className="mt-2 font-display text-2xl font-extrabold sm:text-3xl">{product.name}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{product.description}</p>
 
-          <p className="mt-5 font-display text-2xl font-bold">{mnt(price)}</p>
-          <p className="text-sm text-muted-foreground">1 ширхэг · {mnt(price / tileArea)}/m²</p>
+          <p className="mt-5 font-display text-2xl font-bold">{formatPrice(price, unit)}</p>
+          {(unit !== "piece" || tileArea > 0) && (
+            <p className="text-sm text-muted-foreground">
+              {unit === "piece"
+                ? `1 ширхэг (${size}) · ${mnt(price / tileArea)}/м²`
+                : `1 ширхэг (${size}) · ${mnt(onePiece)}`}
+            </p>
+          )}
           <p className={cn("mt-1 text-sm", inStock ? "text-success" : "text-muted-foreground")}>
             {inStock ? "Бэлэн байгаа" : "Түр дууссан"}
           </p>
@@ -284,61 +302,67 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
 
           <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border border-border bg-card p-5 text-sm">
             {[
-              ["Хэмжээ", `${product.tileSize * 100}×${product.tileSize * 100} см`],
+              ["Хэмжээ", size],
               ["Зузаан", thickness],
               ["Материал", product.material],
               ["Код", variant.code],
               ["Үйлдвэрлэсэн улс", product.origin],
               ["Бэлэн үлдэгдэл", `${variant.stock} ширхэг`],
-            ].map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-muted-foreground">{k}</dt>
-                <dd className="font-medium">{v}</dd>
-              </div>
-            ))}
+            ]
+              .filter(([, v]) => v)
+              .map(([k, v]) => (
+                <div key={k}>
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="font-medium">{v}</dd>
+                </div>
+              ))}
           </dl>
 
-          {/* Calculator */}
+          {/* Calculator — only for products with a size to divide the room by. */}
           <section className="mt-8 rounded-lg border border-border bg-surface p-5">
-            <h2 className="flex items-center gap-2 font-display text-lg font-bold">
-              <Calculator className="h-5 w-5 text-accent" />
-              Хэдэн ширхэг хэрэгтэйгээ тооцоолох
-            </h2>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <Field label="Өрөөний урт (м)">
-                <TextInput
-                  inputMode="decimal"
-                  value={length}
-                  onChange={(e) => {
-                    setLength(e.target.value.replace(",", "."));
-                    setManual(false);
-                  }}
-                />
-              </Field>
-              <Field label="Өрөөний өргөн (м)">
-                <TextInput
-                  inputMode="decimal"
-                  value={width}
-                  onChange={(e) => {
-                    setWidth(e.target.value.replace(",", "."));
-                    setManual(false);
-                  }}
-                />
-              </Field>
-            </div>
+            {tileArea > 0 && (
+              <>
+                <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+                  <Calculator className="h-5 w-5 text-accent" />
+                  Хэдэн ширхэг хэрэгтэйгээ тооцоолох
+                </h2>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <Field label="Өрөөний урт (м)">
+                    <TextInput
+                      inputMode="decimal"
+                      value={length}
+                      onChange={(e) => {
+                        setLength(e.target.value.replace(",", "."));
+                        setManual(false);
+                      }}
+                    />
+                  </Field>
+                  <Field label="Өрөөний өргөн (м)">
+                    <TextInput
+                      inputMode="decimal"
+                      value={width}
+                      onChange={(e) => {
+                        setWidth(e.target.value.replace(",", "."));
+                        setManual(false);
+                      }}
+                    />
+                  </Field>
+                </div>
 
-            <div className="mt-4 rounded-md border border-border bg-card p-4">
-              <SummaryRow label="Өрөөний талбай" value={m2(roomArea)} />
-              <SummaryRow label="Хэрэгцээт хэмжээ" value={`${suggestedPieces} ширхэг`} />
-              <SummaryRow label="Бүтээгдэхүүний дүн" value={mnt(price * effectivePieces)} strong />
-            </div>
+                <div className="mt-4 rounded-md border border-border bg-card p-4">
+                  <SummaryRow label="Өрөөний талбай" value={m2(roomArea)} />
+                  <SummaryRow label="Хэрэгцээт хэмжээ" value={`${suggestedPieces} ширхэг`} />
+                  <SummaryRow label="Бүтээгдэхүүний дүн" value={mnt(goods)} strong />
+                </div>
 
-            <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted-foreground">
-              <Info className="h-4 w-4 shrink-0" />
-              Зүсэлт болон өрөөний хэлбэрээс шалтгаалан шаардлагатай хэмжээ өөрчлөгдөж болно.
-            </p>
+                <p className="mt-3 flex gap-2 text-xs leading-relaxed text-muted-foreground">
+                  <Info className="h-4 w-4 shrink-0" />
+                  Зүсэлт болон өрөөний хэлбэрээс шалтгаалан шаардлагатай хэмжээ өөрчлөгдөж болно.
+                </p>
+              </>
+            )}
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className={cn("flex flex-wrap items-center gap-3", tileArea > 0 && "mt-4")}>
               <span className="text-sm font-medium">Тоо ширхэг:</span>
               <QuantityStepper
                 value={effectivePieces}
@@ -347,16 +371,17 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
                   setPieces(v);
                 }}
               />
-              {manual && (
+              {manual && tileArea > 0 && (
                 <button className="text-xs text-accent underline" onClick={() => setManual(false)}>
                   Тооцоолсон дүнг сэргээх
                 </button>
               )}
+              {!tileArea && <span className="ml-auto font-display font-bold">{mnt(goods)}</span>}
             </div>
           </section>
 
           {/* Glue recommendation — real, separately purchasable products */}
-          <section className="mt-8">
+          <section className="mt-8" hidden={!glues.length}>
             <h2 className="font-display text-lg font-bold">Цавуу хэрэгтэй юу?</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Сонгосон цавуу таны сагсанд тусдаа мөр болон нэмэгдэнэ — хожим тоо хэмжээг өөрчлөх,
@@ -374,9 +399,9 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
                 description="Хивсийг цавуугүйгээр эсвэл өөрийн цавуугаар суурилуулна."
                 price={0}
               />
-              {glueProducts.map((g) => {
+              {glues.map((g) => {
                 const qty =
-                  glueChoice === g.slug ? glueQty : recommendGlueQty(roomArea, g.coverage);
+                  glueChoice === g.slug ? glueQty : recommendGlueQty(glueArea, g.coverage);
                 return (
                   <div key={g.slug}>
                     <OptionCard
@@ -400,7 +425,7 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
                         <div className="min-w-0 flex-1">
                           <p className="text-xs text-muted-foreground">
                             Таны сонгосон талбайд ойролцоогоор{" "}
-                            {recommendGlueQty(roomArea, g.coverage)} сав хэрэгтэй.
+                            {recommendGlueQty(glueArea, g.coverage)} сав хэрэгтэй.
                           </p>
                           <p className="text-sm font-semibold">{mnt(g.price)} / сав</p>
                         </div>
@@ -435,7 +460,7 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
 
           {/* Desktop price summary */}
           <section className="mt-8 hidden rounded-lg border border-border bg-card p-5 lg:block">
-            <SummaryRow label={`Хивс (${effectivePieces} ш)`} value={mnt(goods)} />
+            <SummaryRow label={`${product.name} (${effectivePieces} ш)`} value={mnt(goods)} />
             <SummaryRow
               label={selectedGlue ? `${selectedGlue.name} (${glueQty} сав)` : "Цавуу"}
               value={mnt(glueTotal)}
@@ -479,7 +504,9 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
               <div className="min-w-0">
                 <p className="truncate font-medium">{p.name}</p>
                 <p className="truncate text-sm text-muted-foreground">{p.short}</p>
-                <p className="mt-1 text-sm font-semibold">{mnt(variantPrice(p, p.variants[0]!))}</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {formatPrice(variantPrice(p, p.variants[0]!), priceUnitOf(p))}
+                </p>
               </div>
             </Link>
           ))}

@@ -82,11 +82,8 @@ const groups: [string, (keyof SiteSettings)[]][] = [
       "heroImage",
       "heroButton",
       "heroSecondaryButton",
+      // Category cards now come from product types (name and image are edited there).
       "categoryTitle",
-      "carpetLabel",
-      "carpetImage",
-      "glueLabel",
-      "glueImage",
       "collectionsTitle",
       "featuredTitle",
     ],

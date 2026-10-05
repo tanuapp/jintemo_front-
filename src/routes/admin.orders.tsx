@@ -4,7 +4,7 @@ import { useState } from "react";
 import { api, json } from "@/lib/api";
 import type { Order } from "@/lib/store";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/orders";
-import { mnt } from "@/lib/format";
+import { mnt, orderLineLabel } from "@/lib/format";
 import { Btn } from "@/components/ui-kit";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -165,7 +165,7 @@ function Orders() {
                     <div className="flex-1">
                       <p className="font-medium">{i.snapshot.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {i.snapshot.quantity} × {mnt(i.snapshot.unitPrice)}
+                        {orderLineLabel(i.snapshot, i.kind)}
                       </p>
                     </div>
                     <span className="font-semibold">{mnt(i.snapshot.total)}</span>

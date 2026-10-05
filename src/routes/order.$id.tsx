@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { m2, mnt } from "@/lib/format";
+import { mnt, orderLineLabel } from "@/lib/format";
 import { ORDER_STATUS_LABELS, orderTimeline } from "@/lib/orders";
 import type { Order } from "@/lib/store";
 import { useSettings, installationRate } from "@/lib/settings";
@@ -62,8 +62,7 @@ function OrderDetail() {
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{i.snapshot.name}</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {i.snapshot.quantity} ширхэг × {mnt(i.snapshot.unitPrice)}
-                  {i.snapshot.area > 0 ? ` · ${m2(i.snapshot.area)}` : ""}
+                  {orderLineLabel(i.snapshot, i.kind)}
                 </p>
               </div>
               <strong className="shrink-0 text-sm">{mnt(i.snapshot.total)}</strong>

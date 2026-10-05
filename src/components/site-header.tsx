@@ -7,6 +7,7 @@ import { SearchOverlay } from "@/components/search-overlay";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar } from "@/components/ui-kit";
 import { useAuth } from "@/lib/auth";
+import { useCatalog } from "@/lib/catalog-store";
 import { useCart } from "@/lib/store";
 import { useUi } from "@/lib/ui-store";
 import { useSettings } from "@/lib/settings";
@@ -20,8 +21,8 @@ const nav = [
 ] as const;
 
 /**
- * The supplied logo is a square lockup with a small tagline. Crop only the
- * original emblem here, then pair it with a readable live wordmark.
+ * The logo (admin-configurable) is shown whole — never cropped or stretched — and
+ * centred in its box on both axes, paired with a readable live wordmark.
  */
 function BrandLockup({ large = false, className }: { large?: boolean; className?: string }) {
   const { settings } = useSettings();
@@ -29,18 +30,15 @@ function BrandLockup({ large = false, className }: { large?: boolean; className?
     <Link to="/" className={cn("flex w-fit items-center", large ? "gap-3" : "gap-2.5", className)}>
       <span
         className={cn(
-          "relative block shrink-0 overflow-hidden",
-          large ? "h-10 w-10" : "h-[36px] w-[36px]",
+          "grid shrink-0 place-items-center overflow-hidden rounded-md bg-white",
+          large ? "h-14 w-14" : "h-11 w-11",
         )}
       >
         <img
           src={settings.logo}
           alt=""
           aria-hidden="true"
-          className={cn(
-            "absolute max-w-none",
-            large ? "-left-5 -top-0.5 h-20 w-20" : "-left-[18px] -top-0.5 h-[72px] w-[72px]",
-          )}
+          className="h-full w-full object-contain object-center"
         />
       </span>
       <span
@@ -247,6 +245,8 @@ export function SiteHeader() {
 
 export function SiteFooter() {
   const { settings, content } = useSettings();
+  const { types, catalog } = useCatalog();
+  const shownTypes = types.filter((t) => catalog.some((p) => p.typeId === t.id));
   return (
     <footer className="border-t border-border bg-surface">
       <div className="container-page py-12">
@@ -264,12 +264,16 @@ export function SiteFooter() {
               <Link to="/products" search={{ category: "all" }} className="hover:text-accent">
                 Бүх бүтээгдэхүүн
               </Link>
-              <Link to="/products" search={{ category: "carpet" }} className="hover:text-accent">
-                Хивс
-              </Link>
-              <Link to="/products" search={{ category: "glue" }} className="hover:text-accent">
-                Цавуу
-              </Link>
+              {shownTypes.map((t) => (
+                <Link
+                  key={t.id}
+                  to="/products"
+                  search={{ category: t.slug }}
+                  className="hover:text-accent"
+                >
+                  {t.name}
+                </Link>
+              ))}
               <Link to="/visualizer" className="hover:text-accent">
                 Өрөөндөө үзэх
               </Link>

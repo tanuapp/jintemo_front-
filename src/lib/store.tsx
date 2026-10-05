@@ -12,7 +12,15 @@ import { toast } from "sonner";
 import { api, json, errorMessage } from "./api";
 import { useAuth } from "./auth";
 import type { OrderStatus } from "./orders";
-import type { GlueProduct, Product } from "./products";
+import {
+  isGlue,
+  pieceArea,
+  pieceFactor,
+  variantPrice,
+  type GlueProduct,
+  type PriceUnit,
+  type Product,
+} from "./products";
 export type CarpetCartItem = {
   id: string;
   kind: "carpet";
@@ -28,8 +36,14 @@ export type NewCartItem = DistributiveOmit<CartItem, "id">;
 export type Snapshot = {
   name: string;
   image: string;
+  /** Price of one `priceUnit` at the time of the order. */
   unitPrice: number;
+  /** Absent on orders placed before price units existed (per piece). */
+  priceUnit?: PriceUnit;
+  /** Pieces for carpet lines, price units for single items. */
   quantity: number;
+  /** How many price units were charged (e.g. 2 m² for 8 tiles of 0.25 m²). */
+  unitQuantity?: number;
   total: number;
   area: number;
 };
@@ -63,15 +77,23 @@ export type OrderInput = {
 };
 export function itemArea(item: CarpetCartItem, products: Product[]) {
   const p = products.find((p) => p.slug === item.productSlug);
-  return item.pieces * (p?.tileSize ?? 0.5) ** 2;
+  return p ? item.pieces * pieceArea(p) : 0;
 }
+/** Mirrors the server's checkout: per-m²/per-metre prices are charged by the piece's size. */
 export function itemTotal(item: CartItem, products: Product[], glues: GlueProduct[] = []): number {
   if (item.kind === "carpet") {
     const p = products.find((p) => p.slug === item.productSlug);
     const variant = p?.variants.find((v) => v.id === item.colorId);
-    return variant ? (variant.price ?? p!.basePrice) * item.pieces : 0;
+    return p && variant ? Math.round(variantPrice(p, variant) * pieceFactor(p) * item.pieces) : 0;
   }
   return (glues.find((g) => g.slug === item.glueSlug)?.price ?? 0) * item.quantity;
+}
+/** Summary label of `totals.glue`, which counts every single-item product, not only glue. */
+export function extrasLabel(items: CartItem[], glues: GlueProduct[]) {
+  const singles = items.flatMap((i) =>
+    i.kind === "glue" ? glues.filter((g) => g.slug === i.glueSlug) : [],
+  );
+  return singles.every(isGlue) ? "Цавуу" : "Нэмэлт бараа";
 }
 export function computeTotals(
   items: CartItem[],

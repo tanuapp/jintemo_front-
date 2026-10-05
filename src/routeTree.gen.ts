@@ -21,6 +21,7 @@ import { Route as AdminAuditRouteImport } from './routes/admin.audit'
 import { Route as AdminCatalogRouteImport } from './routes/admin.catalog'
 import { Route as AdminContactsRouteImport } from './routes/admin.contacts'
 import { Route as AdminContentRouteImport } from './routes/admin.content'
+import { Route as AdminInventoryRouteImport } from './routes/admin.inventory'
 import { Route as AdminMediaRouteImport } from './routes/admin.media'
 import { Route as AdminOrdersRouteImport } from './routes/admin.orders'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
@@ -93,6 +94,11 @@ const AdminContactsRoute = AdminContactsRouteImport.update({
 const AdminContentRoute = AdminContentRouteImport.update({
   id: '/admin/content',
   path: '/admin/content',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminInventoryRoute = AdminInventoryRouteImport.update({
+  id: '/admin/inventory',
+  path: '/admin/inventory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminMediaRoute = AdminMediaRouteImport.update({
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/admin/catalog': typeof AdminCatalogRoute
   '/admin/contacts': typeof AdminContactsRoute
   '/admin/content': typeof AdminContentRoute
+  '/admin/inventory': typeof AdminInventoryRoute
   '/admin/media': typeof AdminMediaRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -200,6 +207,7 @@ export interface FileRoutesByTo {
   '/admin/catalog': typeof AdminCatalogRoute
   '/admin/contacts': typeof AdminContactsRoute
   '/admin/content': typeof AdminContentRoute
+  '/admin/inventory': typeof AdminInventoryRoute
   '/admin/media': typeof AdminMediaRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -228,6 +236,7 @@ export interface FileRoutesById {
   '/admin/catalog': typeof AdminCatalogRoute
   '/admin/contacts': typeof AdminContactsRoute
   '/admin/content': typeof AdminContentRoute
+  '/admin/inventory': typeof AdminInventoryRoute
   '/admin/media': typeof AdminMediaRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -257,6 +266,7 @@ export interface FileRouteTypes {
     | '/admin/catalog'
     | '/admin/contacts'
     | '/admin/content'
+    | '/admin/inventory'
     | '/admin/media'
     | '/admin/orders'
     | '/admin/settings'
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
     | '/admin/catalog'
     | '/admin/contacts'
     | '/admin/content'
+    | '/admin/inventory'
     | '/admin/media'
     | '/admin/orders'
     | '/admin/settings'
@@ -311,6 +322,7 @@ export interface FileRouteTypes {
     | '/admin/catalog'
     | '/admin/contacts'
     | '/admin/content'
+    | '/admin/inventory'
     | '/admin/media'
     | '/admin/orders'
     | '/admin/settings'
@@ -339,6 +351,7 @@ export interface RootRouteChildren {
   AdminCatalogRoute: typeof AdminCatalogRoute
   AdminContactsRoute: typeof AdminContactsRoute
   AdminContentRoute: typeof AdminContentRoute
+  AdminInventoryRoute: typeof AdminInventoryRoute
   AdminMediaRoute: typeof AdminMediaRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
@@ -439,6 +452,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/content'
       fullPath: '/admin/content'
       preLoaderRoute: typeof AdminContentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/inventory': {
+      id: '/admin/inventory'
+      path: '/admin/inventory'
+      fullPath: '/admin/inventory'
+      preLoaderRoute: typeof AdminInventoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/media': {
@@ -547,6 +567,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCatalogRoute: AdminCatalogRoute,
   AdminContactsRoute: AdminContactsRoute,
   AdminContentRoute: AdminContentRoute,
+  AdminInventoryRoute: AdminInventoryRoute,
   AdminMediaRoute: AdminMediaRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AdminSettingsRoute: AdminSettingsRoute,
