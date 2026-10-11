@@ -181,6 +181,11 @@ function Catalog() {
                             ? c.sections.find((s) => s.id === p.sectionId)?.name
                             : p.packageSize}
                         </p>
+                        {p.kind === "carpet" && !p.variants.length && (
+                          <p className="mt-1 text-xs font-medium text-destructive">
+                            Өнгө нэмээгүй тул вэб дээр харагдахгүй
+                          </p>
+                        )}
                       </div>
                     </div>
                   </td>

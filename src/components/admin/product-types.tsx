@@ -34,10 +34,15 @@ export function ProductTypesPanel() {
   const c = useCatalog();
   const { busy, run } = useAction();
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<ProductKind>("carpet");
+  // Most new types (наалт, ам дарагч, …) are single items; variants are opt-in.
+  const [kind, setKind] = useState<ProductKind>("glue");
   const [addError, setAddError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ name: "", image: "" });
+  const [draft, setDraft] = useState<{ name: string; image: string; kind: ProductKind }>({
+    name: "",
+    image: "",
+    kind: "glue",
+  });
   const [editError, setEditError] = useState<string | null>(null);
 
   const add = async () => {
@@ -50,8 +55,20 @@ export function ProductTypesPanel() {
     const error = nameError(c.types, draft.name, type.id);
     setEditError(error);
     if (error) return;
-    if (await run(() => c.updateType(type.id, { name: draft.name.trim(), image: draft.image })))
-      setEditing(null);
+    const patch = {
+      name: draft.name.trim(),
+      image: draft.image,
+      ...(draft.kind !== type.kind ? { kind: draft.kind } : {}),
+    };
+    if (await run(() => c.updateType(type.id, patch))) setEditing(null);
+  };
+  // Same rule as the server: nothing may be lost when the structure changes.
+  const structureLock = (type: ProductType) => {
+    if (type.kind === "glue")
+      return type.productCount ? "Бүтээгдэхүүнтэй тул өнгөний хувилбартай болгох боломжгүй." : null;
+    return c.products.some((p) => p.typeId === type.id && p.variants.length > 0)
+      ? "Өнгөний хувилбартай бүтээгдэхүүн байгаа тул бүтцийг солих боломжгүй."
+      : null;
   };
 
   return (
@@ -71,13 +88,33 @@ export function ProductTypesPanel() {
                 <label className="block text-sm font-medium">
                   Төрлийн нэр
                   <input
-                    className={`${inputClass} mt-2 max-w-md`}
+                    className={`${inputClass} mt-2 block max-w-md`}
                     value={draft.name}
                     aria-invalid={!!editError}
                     onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
                   />
                 </label>
                 {editError && <p className="text-sm text-destructive">{editError}</p>}
+                <label className="block text-sm font-medium">
+                  Барааны бүтэц
+                  <select
+                    className={`${inputClass} mt-2 block max-w-md`}
+                    value={draft.kind}
+                    disabled={!!structureLock(type)}
+                    onChange={(e) =>
+                      setDraft((d) => ({ ...d, kind: e.target.value as ProductKind }))
+                    }
+                  >
+                    {(Object.keys(KIND_LABELS) as ProductKind[]).map((k) => (
+                      <option key={k} value={k}>
+                        {KIND_LABELS[k]}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                    {structureLock(type) ?? KIND_HINTS[draft.kind]}
+                  </span>
+                </label>
                 <div className="max-w-xl">
                   <ImageField
                     label="Нүүр хуудасны картын зураг"
@@ -158,7 +195,7 @@ export function ProductTypesPanel() {
                     onClick={() => {
                       setEditing(type.id);
                       setEditError(null);
-                      setDraft({ name: type.name, image: type.image });
+                      setDraft({ name: type.name, image: type.image, kind: type.kind });
                     }}
                     className="p-2"
                   >

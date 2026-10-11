@@ -110,7 +110,7 @@ function Inventory() {
     <>
       <PageTitle
         title="Үлдэгдэл"
-        description="Салбар бүрийн үлдэгдлийг нүдэн дээр дарж шууд засна. Enter эсвэл өөр нүд рүү шилжихэд хадгалагдана, Esc дарвал болино."
+        description="Салбар бүрийн үлдэгдлийг тоон дээр дарж шууд засна. Enter дарах эсвэл гадна дарахад хадгалагдана, Esc дарвал болино."
       />
       <Panel>
         <div className="mb-5 flex flex-wrap gap-3">
@@ -135,7 +135,57 @@ function Inventory() {
             ))}
           </select>
         </div>
-        <div className="overflow-x-auto">
+        {/* Phones: one card per item, every location editable without sideways scrolling. */}
+        <ul className="space-y-3 md:hidden">
+          {visible.map((row) => (
+            <li key={row.key} className="rounded-lg border border-border p-3">
+              <div className="flex items-center gap-3">
+                {row.image ? (
+                  <img
+                    src={row.image}
+                    alt=""
+                    className="h-12 w-12 shrink-0 rounded bg-surface object-cover"
+                  />
+                ) : (
+                  <span className="h-12 w-12 shrink-0 rounded bg-surface" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold leading-snug">{row.name}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {typeName(row.typeId)} · {row.code || "Кодгүй"}
+                    {!row.active && " · Нуусан"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                {locations.map((l) => (
+                  <div
+                    key={l.id}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-md bg-surface pl-3 pr-1"
+                  >
+                    <span className="text-sm">{l.name}</span>
+                    <StockCell
+                      label={`${row.name} — ${l.name}`}
+                      value={row.inventory[l.id] ?? 0}
+                      onSave={(n) => save(row, l.id, n)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-2">
+                <span className="text-sm text-muted-foreground">Нийт үлдэгдэл</span>
+                <span className="font-display text-lg font-bold tabular-nums">{total(row)}</span>
+              </div>
+              {row.updatedAt && (
+                <p className="text-right text-[11px] text-muted-foreground">
+                  {new Date(row.updatedAt).toLocaleString()}
+                  {row.updatedBy && ` · ${row.updatedBy}`}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="text-muted-foreground">
               <tr>

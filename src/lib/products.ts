@@ -42,7 +42,8 @@ export const KIND_LABELS: Record<ProductKind, string> = {
 };
 /** What each structure means for selling and stock, shown next to the choice. */
 export const KIND_HINTS: Record<ProductKind, string> = {
-  carpet: "Өнгө бүр тусдаа үлдэгдэлтэй, ширхэгээр зарагдана.",
+  carpet:
+    "Өнгө бүр тусдаа үлдэгдэлтэй, ширхэгээр зарагдана. Бараа бүрт дор хаяж нэг өнгө нэмэхгүй бол вэб дээр харагдахгүй.",
   glue: "Нэг бараа, сонгосон нэгжээр (ширхэг / м² / метр) зарагдана.",
 };
 

@@ -174,6 +174,10 @@ function Editor({ initial, existing }: { initial: Draft; existing: boolean }) {
       e["stock"] = "Үлдэгдэл 0 эсвэл түүнээс их бүхэл тоо байна.";
     if (d.kind === "glue" && d.coverage !== undefined && d.coverage !== 0 && !(d.coverage > 0))
       e["coverage"] = "Хамрах талбай 0-ээс их тоо байна.";
+    // A variant product is sold by colour; without one it cannot appear on the website.
+    if (d.kind === "carpet" && d.active !== false && !d.variants.length)
+      e["variants"] =
+        "Вэб дээр харуулахын тулд дор хаяж нэг өнгө нэмнэ үү. Өнгөгүй бараа бол төрлийн бүтцийг «Энгийн бараа» болгоно уу.";
     d.variants.forEach((v, i) => {
       if (!v.name.trim()) e[`variant.${i}.name`] = "Өнгөний нэр оруулна уу.";
       if (!isStock(v.stock)) e[`variant.${i}.stock`] = "Үлдэгдэл 0 эсвэл түүнээс их бүхэл тоо.";
@@ -473,8 +477,11 @@ function Editor({ initial, existing }: { initial: Draft; existing: boolean }) {
             </Btn>
           </div>
           {!d.variants.length && (
-            <p className="text-sm text-muted-foreground">
-              Худалдан авах боломжтой болгохын тулд дор хаяж нэг өнгө нэмнэ үү.
+            <p
+              className={`text-sm ${errors["variants"] ? "text-destructive" : "text-muted-foreground"}`}
+            >
+              {errors["variants"] ??
+                "Худалдан авах боломжтой болгохын тулд дор хаяж нэг өнгө нэмнэ үү."}
             </p>
           )}
           {d.variants.length > 0 && (

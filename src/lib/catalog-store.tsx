@@ -28,7 +28,7 @@ export type CatalogData = {
   locations?: StockLocation[];
 };
 export type ProductTypeInput = { name: string; kind: ProductKind };
-export type ProductTypePatch = Partial<Pick<ProductType, "name" | "image" | "active">>;
+export type ProductTypePatch = Partial<Pick<ProductType, "name" | "image" | "active" | "kind">>;
 type Store = Omit<CatalogData, "locations"> & {
   locations: StockLocation[];
   ready: boolean;
