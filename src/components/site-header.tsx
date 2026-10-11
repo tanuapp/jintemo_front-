@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Menu, Search, ShoppingBag, User } from "lucide-react";
+import { Facebook, Menu, Search, ShoppingBag, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { MobileDrawer } from "@/components/mobile-drawer";
 import { AuthPanel, ProfileMenu } from "@/components/profile-drawer";
@@ -321,6 +321,20 @@ export function SiteFooter() {
               <Link to="/contact" className="inline-block text-accent">
                 Зурвас илгээх
               </Link>
+              {settings.facebookUrl && (
+                <a
+                  href={settings.facebookUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Facebook хуудас"
+                  className="flex w-fit items-center gap-2 font-medium text-foreground hover:text-accent"
+                >
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-accent-foreground">
+                    <Facebook className="h-4 w-4" />
+                  </span>
+                  Facebook
+                </a>
+              )}
             </div>
           </div>
         </div>
