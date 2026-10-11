@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Brush,
+  Check,
   Columns2,
   Download,
   Eraser,
@@ -8,6 +9,7 @@ import {
   Grid3x3,
   ImagePlus,
   Info,
+  Loader2,
   Move,
   RotateCcw,
   Search,
@@ -25,6 +27,7 @@ import roomOffice from "@/assets/room-office.jpg";
 import roomSample from "@/assets/room-sample.jpg";
 import { Btn, ColorSwatch } from "@/components/ui-kit";
 import { useCatalog } from "@/lib/catalog-store";
+import { detectFloor, readFocal35, warmDetector } from "@/lib/floor-detect";
 import {
   formatPrice,
   formatSize,
@@ -92,7 +95,13 @@ type Room = {
   floorW: number;
   floorD: number;
   keepShapes: Pt[][];
+  /** Furniture mask found automatically in an uploaded photo. */
+  keepMask?: HTMLCanvasElement;
+  /** The floor is still being looked for: show the plain photo. */
+  analyzing?: boolean;
 };
+/** What the stage is busy with, shown to the customer as a percentage. */
+type Busy = { label: string; pct: number; done?: boolean };
 
 const loadImage = (src: string, cors: boolean) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -103,8 +112,38 @@ const loadImage = (src: string, cors: boolean) =>
     img.onerror = reject;
     img.src = src;
   });
-/** Readable pixels when the server allows it (needed for auto-crop and download). */
-const loadProductImage = (src: string) => loadImage(src, true).catch(() => loadImage(src, false));
+/**
+ * A product photo, reporting how much has arrived (0–1). Downloaded as a blob so its
+ * pixels stay readable (auto-crop, download); servers that refuse that are loaded plainly.
+ */
+async function loadProductImage(src: string, onProgress: (fraction: number) => void) {
+  try {
+    const res = await fetch(src);
+    if (!res.ok || !res.body) throw new Error(String(res.status));
+    const total = Number(res.headers.get("content-length")) || 0;
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let loaded = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.length;
+      // Without a declared size, approach the end the more has arrived.
+      onProgress(total ? loaded / total : 1 - Math.exp(-loaded / 150_000));
+    }
+    const url = URL.createObjectURL(
+      new Blob(chunks as BlobPart[], { type: res.headers.get("content-type") || "image/jpeg" }),
+    );
+    try {
+      return await loadImage(url, false);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  } catch {
+    return loadImage(src, true).catch(() => loadImage(src, false));
+  }
+}
 
 function toPhoto(img: HTMLImageElement) {
   const scale = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
@@ -142,6 +181,7 @@ function Visualizer() {
   // --- room
   const [room, setRoom] = useState<Room | null>(null);
   const [roomLoading, setRoomLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<Busy | null>(null);
   const [mode, setMode] = useState<Mode>("view");
   const [brush, setBrush] = useState<{ tool: "keep" | "erase"; size: number }>({
     tool: "keep",
@@ -158,17 +198,56 @@ function Visualizer() {
   const [screenScale, setScreenScale] = useState(1);
 
   // --- product texture
-  const [source, setSource] = useState<{ img: HTMLImageElement; crop: Crop } | null>(null);
+  type Source = { img: HTMLImageElement; crop: Crop };
+  const [source, setSource] = useState<Source | null>(null);
+  const [swapping, setSwapping] = useState<Busy | null>(null);
+  const sources = useRef(new Map<string, Source>());
+  const productName = product?.name ?? "";
   useEffect(() => {
-    if (!variant?.image) return setSource(null);
+    const src = variant?.image;
+    if (!src) return setSource(null);
     let live = true;
-    loadProductImage(variant.image)
-      .then((img) => live && setSource({ img, crop: findTile(img) }))
-      .catch(() => live && setSource(null));
+    let hide = 0;
+    // The floor keeps its old look until the new one is ready; the bar says which is coming.
+    const finish = (next: Source) => {
+      if (!live) return;
+      setSource(next);
+      setSwapping({ label: productName, pct: 100, done: true });
+      hide = window.setTimeout(() => live && setSwapping(null), 900);
+    };
+    const cached = sources.current.get(src);
+    if (cached) finish(cached);
+    else {
+      const started = performance.now();
+      let real = 0;
+      const show = () => {
+        // Creeps on its own while the server reports nothing, never past the real figure's range.
+        const idle = 60 * (1 - Math.exp(-(performance.now() - started) / 1500));
+        setSwapping({ label: productName, pct: Math.round(Math.max(real * 92, idle)) });
+      };
+      show();
+      const timer = window.setInterval(() => live && show(), 150);
+      loadProductImage(src, (fraction) => {
+        real = fraction;
+        if (live) show();
+      })
+        .then((img) => {
+          const next = { img, crop: findTile(img) };
+          sources.current.set(src, next);
+          finish(next);
+        })
+        .catch(() => {
+          if (!live) return;
+          setSwapping(null);
+          toast.error("Хивсний зургийг ачаалж чадсангүй.");
+        })
+        .finally(() => window.clearInterval(timer));
+    }
     return () => {
       live = false;
+      window.clearTimeout(hide);
     };
-  }, [variant?.image]);
+  }, [variant?.image, productName]);
   const texture: Texture | null = useMemo(
     () => (source ? buildTexture(source.img, source.crop, tileW, tileL, layout, seams) : null),
     [source, tileW, tileL, layout, seams],
@@ -213,36 +292,77 @@ function Visualizer() {
     }
     setRoomLoading(true);
     const url = URL.createObjectURL(file);
+    let photo: HTMLCanvasElement;
     try {
-      const photo = toPhoto(await loadImage(url, false));
-      setRoom({
-        id: "upload",
-        photo,
-        quad: uploadQuad(photo.width, photo.height),
-        floorW: 4,
-        floorD: 4,
-        keepShapes: [],
-      });
-      setMode("floor");
-      toast.info("Шалны 4 цэгийг өрөөний шугамын дагуу байрлуулна уу.");
+      photo = toPhoto(await loadImage(url, false));
     } catch {
       toast.error("Зургийг уншиж чадсангүй.");
+      return;
     } finally {
       URL.revokeObjectURL(url);
       setRoomLoading(false);
+    }
+    // Show the photo at once; the floor is found in the background.
+    setRoom({
+      id: "upload",
+      photo,
+      quad: uploadQuad(photo.width, photo.height),
+      floorW: 4,
+      floorD: 4,
+      keepShapes: [],
+      analyzing: true,
+    });
+    setMode("view");
+    setCompare(null);
+    setAnalysis({ label: "Таних модель ачаалж байна", pct: 2 });
+    // Only this photo's result may land: the customer can pick another room meanwhile.
+    const mine = (r: Room | null): r is Room => r?.photo === photo;
+    try {
+      const found = await detectFloor(photo, {
+        focal35: await readFocal35(file),
+        onProgress: ({ stage, pct }) =>
+          setAnalysis({
+            label: stage === "download" ? "Таних модель ачаалж байна" : "Шалыг таньж байна",
+            pct,
+          }),
+      });
+      setRoom((r) =>
+        mine(r)
+          ? {
+              ...r,
+              quad: found.quad,
+              floorW: found.floorW,
+              floorD: found.floorD,
+              keepMask: found.keep,
+              analyzing: false,
+            }
+          : r,
+      );
+      setAngle(found.angle);
+      toast.success("Шалыг автоматаар танилаа", {
+        description: "Нарийвчлах бол «Шал тохируулах», «Тавилга хамгаалах»-ыг ашиглана.",
+      });
+    } catch {
+      setRoom((r) => (mine(r) ? { ...r, analyzing: false } : r));
+      setMode("floor");
+      toast.info("Шалыг автоматаар таньж чадсангүй. 4 цэгийг гараар байрлуулна уу.");
+    } finally {
+      setAnalysis(null);
     }
   };
 
   const photo = room?.photo;
   const quad = room?.quad;
   const keepShapes = room?.keepShapes;
-  // Furniture mask: preset outlines to start with, then whatever the customer paints.
+  const keepMask = room?.keepMask;
+  // Furniture mask: what was detected or preset to start with, then whatever the customer paints.
   useEffect(() => {
     if (!photo || !keepShapes) return;
     const c = document.createElement("canvas");
     c.width = photo.width;
     c.height = photo.height;
     const ctx = c.getContext("2d")!;
+    if (keepMask) ctx.drawImage(keepMask, 0, 0);
     ctx.fillStyle = "#fff";
     for (const shape of keepShapes) {
       ctx.beginPath();
@@ -252,7 +372,7 @@ function Visualizer() {
     }
     keepRef.current = c;
     setMaskVersion((v) => v + 1);
-  }, [photo, keepShapes]);
+  }, [photo, keepShapes, keepMask]);
 
   const light: Light | null = useMemo(() => (photo ? measureLight(photo) : null), [photo]);
   const shading = useMemo(
@@ -275,7 +395,7 @@ function Visualizer() {
         quad: room.quad,
         floorW: room.floorW,
         floorD: room.floorD,
-        texture,
+        texture: room.analyzing ? null : texture,
         angle,
         shading,
         keep: keepRef.current,
@@ -427,7 +547,13 @@ function Visualizer() {
   const chooseProduct = (p: Product) => {
     setProductSlug(p.slug);
     setColorId("");
-    void navigate({ to: "/visualizer", search: { slug: p.slug }, replace: true });
+    // Only the address changes: the page must stay where the customer is looking.
+    void navigate({
+      to: "/visualizer",
+      search: { slug: p.slug },
+      replace: true,
+      resetScroll: false,
+    });
   };
 
   if (ready && !product)
@@ -651,6 +777,83 @@ function Visualizer() {
                 Ачаалж байна…
               </div>
             )}
+            {analysis ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="absolute inset-0 grid place-items-center bg-foreground/35 p-4 backdrop-blur-[1px]"
+              >
+                <div className="w-full max-w-xs rounded-xl bg-card p-4 shadow-lift">
+                  <p className="flex items-center gap-2 text-sm font-semibold">
+                    <Loader2 className="h-4 w-4 animate-spin text-accent" />
+                    {analysis.label}
+                    <span className="ml-auto tabular-nums">{analysis.pct}%</span>
+                  </p>
+                  <ProgressBar pct={analysis.pct} />
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    Зураг таны төхөөрөмж дээр боловсруулагдана. Анх удаа хэдэн секунд илүү
+                    зарцуулна.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              swapping && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-3"
+                >
+                  <div className="w-full max-w-xs rounded-lg bg-card/95 px-4 py-3 shadow-lift backdrop-blur">
+                    <p className="flex items-center gap-2 text-sm font-medium">
+                      {swapping.done ? (
+                        <Check className="h-4 w-4 shrink-0 text-success" />
+                      ) : (
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent" />
+                      )}
+                      <span className="truncate">
+                        {swapping.done ? "Солигдлоо: " : "Хивс солигдож байна: "}
+                        {swapping.label}
+                      </span>
+                      <span className="ml-auto tabular-nums">{swapping.pct}%</span>
+                    </p>
+                    <ProgressBar pct={swapping.pct} />
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+
+          {/* Phones: switch carpets right under the picture; the full list is further down. */}
+          <div className="mt-3 lg:hidden">
+            <p className="text-sm font-semibold">Хивс солих</p>
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              {products.map((p) => (
+                <button
+                  key={p.slug}
+                  type="button"
+                  aria-pressed={p.slug === product?.slug}
+                  onClick={() => chooseProduct(p)}
+                  className={cn(
+                    "w-24 shrink-0 overflow-hidden rounded-lg border-2 bg-card text-left",
+                    p.slug === product?.slug ? "border-accent" : "border-transparent",
+                  )}
+                >
+                  <span className="grid aspect-square w-full place-items-center bg-surface">
+                    {p.variants[0]?.image && (
+                      <img
+                        src={p.variants[0].image}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-contain p-1"
+                      />
+                    )}
+                  </span>
+                  <span className="block truncate px-1.5 py-1 text-[11px] font-medium">
+                    {p.name}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Mode help and controls */}
@@ -664,8 +867,8 @@ function Visualizer() {
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {(
                   [
-                    ["floorW", "Арын хананы өргөн", 1, 15],
-                    ["floorD", "Тэмдэглэсэн хэсгийн гүн", 1, 15],
+                    ["floorW", "Арын хананы өргөн", 1, 30],
+                    ["floorD", "Тэмдэглэсэн хэсгийн гүн", 0.5, 30],
                   ] as const
                 ).map(([key, label, min, max]) => (
                   <label key={key} className="block text-sm font-medium">
@@ -753,6 +956,24 @@ function Visualizer() {
           <div className="mt-4">
             <p className="text-sm font-semibold">Өрөө сонгох</p>
             <div className="mt-2 flex gap-3 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={() => {
+                  // Start fetching the floor-recognition model while the customer picks a photo.
+                  warmDetector();
+                  fileRef.current?.click();
+                }}
+                className={cn(
+                  "grid w-36 shrink-0 place-items-center rounded-lg border-2 border-dashed bg-card p-3 text-center",
+                  room?.id === "upload" ? "border-accent" : "border-border",
+                )}
+              >
+                <span className="flex flex-col items-center gap-1.5 text-xs font-medium">
+                  <ImagePlus className="h-6 w-6 text-accent" />
+                  Өөрийн өрөөний зураг
+                  <span className="font-normal text-muted-foreground">Шалыг автоматаар танина</span>
+                </span>
+              </button>
               {ROOM_PRESETS.map((p) => (
                 <button
                   key={p.id}
@@ -771,19 +992,6 @@ function Visualizer() {
                   <span className="block px-2 py-1.5 text-xs font-medium">{p.name}</span>
                 </button>
               ))}
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className={cn(
-                  "grid w-36 shrink-0 place-items-center rounded-lg border-2 border-dashed bg-card p-3 text-center",
-                  room?.id === "upload" ? "border-accent" : "border-border",
-                )}
-              >
-                <span className="flex flex-col items-center gap-1.5 text-xs font-medium">
-                  <ImagePlus className="h-6 w-6 text-accent" />
-                  Өөрийн өрөөний зураг
-                </span>
-              </button>
             </div>
             <input
               ref={fileRef}
@@ -892,7 +1100,7 @@ function Visualizer() {
                 type="range"
                 min={0}
                 max={90}
-                step={5}
+                step={1}
                 value={angle}
                 onChange={(e) => setAngle(Number(e.target.value))}
                 className="mt-2 w-full accent-[var(--accent)]"
@@ -981,6 +1189,13 @@ function Visualizer() {
                         .join(" · ")}
                     </span>
                   </span>
+                  {p.slug === product?.slug &&
+                    swapping &&
+                    (swapping.done ? (
+                      <Check className="h-4 w-4 shrink-0 text-success" />
+                    ) : (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent" />
+                    ))}
                 </button>
               ))}
               {!list.length && (
@@ -990,6 +1205,17 @@ function Visualizer() {
           </section>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function ProgressBar({ pct }: { pct: number }) {
+  return (
+    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+      <div
+        className="h-full rounded-full bg-accent transition-[width] duration-200"
+        style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+      />
     </div>
   );
 }
