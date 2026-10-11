@@ -39,8 +39,9 @@ export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () =>
     navigate({ to: "/products", search: { q: q.trim() } });
   };
 
+  // The homepage header is pointer-events-none; the overlay must take clicks itself.
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="pointer-events-auto fixed inset-0 z-50">
       <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
       <div className="absolute inset-x-0 top-0 max-h-[85vh] overflow-y-auto rounded-b-2xl bg-card p-4 shadow-lift">
         <div className="container-page flex items-center gap-3 px-0">

@@ -15,7 +15,12 @@ import { Btn, Field, OptionCard, SummaryRow, TextArea, TextInput } from "@/compo
 import { useAuth, type Address } from "@/lib/auth";
 import { useCatalog } from "@/lib/catalog-store";
 import { m2, mnt } from "@/lib/format";
-import { INSTALL_PRICE_TBD, PRICE_UNIT_LABELS, priceUnitOf } from "@/lib/products";
+import {
+  INSTALL_PRICE_TBD,
+  PRICE_UNIT_LABELS,
+  isDefaultVariant,
+  priceUnitOf,
+} from "@/lib/products";
 import { computeTotals, extrasLabel, itemArea, itemTotal, useCart } from "@/lib/store";
 import { errorMessage, ApiError } from "@/lib/api";
 import { useSettings, installationRate } from "@/lib/settings";
@@ -597,7 +602,12 @@ function Checkout() {
                                 </p>
                               </div>
                               <p className="mt-0.5 text-sm text-muted-foreground">
-                                {variant ? `${variant.name} · ${variant.code} · ` : ""}
+                                {variant
+                                  ? [isDefaultVariant(variant) ? "" : variant.name, variant.code]
+                                      .filter(Boolean)
+                                      .map((t) => `${t} · `)
+                                      .join("")
+                                  : ""}
                                 {itemArea(item, products) > 0
                                   ? `${m2(itemArea(item, products))} · `
                                   : ""}

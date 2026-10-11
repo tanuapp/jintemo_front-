@@ -7,6 +7,8 @@ import {
   PRICE_UNITS,
   PRICE_UNIT_LABELS,
   pieceFactor,
+  formatQty,
+  stockUnitOf,
   type ColorVariant,
   type GlueProduct,
   type PriceUnit,
@@ -152,6 +154,8 @@ function Editor({ initial, existing }: { initial: Draft; existing: boolean }) {
 
   const width = parseDim(dims.width);
   const length = parseDim(dims.length);
+  // Stock is counted in pieces; tiles sold per m² also show it in m².
+  const pieceStock = stockUnitOf({ priceUnit: unit, widthM: width, lengthM: length, variants: [] });
   const price = d.kind === "carpet" ? d.basePrice : d.price;
   const validate = () => {
     const e: Errors = {};
@@ -174,10 +178,6 @@ function Editor({ initial, existing }: { initial: Draft; existing: boolean }) {
       e["stock"] = "Үлдэгдэл 0 эсвэл түүнээс их бүхэл тоо байна.";
     if (d.kind === "glue" && d.coverage !== undefined && d.coverage !== 0 && !(d.coverage > 0))
       e["coverage"] = "Хамрах талбай 0-ээс их тоо байна.";
-    // A variant product is sold by colour; without one it cannot appear on the website.
-    if (d.kind === "carpet" && d.active !== false && !d.variants.length)
-      e["variants"] =
-        "Вэб дээр харуулахын тулд дор хаяж нэг өнгө нэмнэ үү. Өнгөгүй бараа бол төрлийн бүтцийг «Энгийн бараа» болгоно уу.";
     d.variants.forEach((v, i) => {
       if (!v.name.trim()) e[`variant.${i}.name`] = "Өнгөний нэр оруулна уу.";
       if (!isStock(v.stock)) e[`variant.${i}.stock`] = "Үлдэгдэл 0 эсвэл түүнээс их бүхэл тоо.";
@@ -477,11 +477,9 @@ function Editor({ initial, existing }: { initial: Draft; existing: boolean }) {
             </Btn>
           </div>
           {!d.variants.length && (
-            <p
-              className={`text-sm ${errors["variants"] ? "text-destructive" : "text-muted-foreground"}`}
-            >
-              {errors["variants"] ??
-                "Худалдан авах боломжтой болгохын тулд дор хаяж нэг өнгө нэмнэ үү."}
+            <p className="text-sm text-muted-foreground">
+              Өнгө нэмэхгүй бол «Үндсэн» нэртэй нэг хувилбар автоматаар үүсч, бараа вэб дээр шууд
+              гарна. Үлдэгдлийг «Үлдэгдэл» хуудаснаас оруулна.
             </p>
           )}
           {d.variants.length > 0 && (
@@ -542,6 +540,12 @@ function Editor({ initial, existing }: { initial: Draft; existing: boolean }) {
                     </label>
                   ))}
                 </div>
+                {pieceStock.unit !== "piece" && isStock(variant.stock) && (
+                  <Hint>
+                    {variant.stock} ширхэг = {formatQty(variant.stock * pieceStock.factor)}{" "}
+                    {PRICE_UNIT_LABELS[pieceStock.unit]}
+                  </Hint>
+                )}
                 <ImageField
                   value={variant.image}
                   onChange={(image) => changeVariant(i, { image })}

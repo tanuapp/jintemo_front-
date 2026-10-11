@@ -177,6 +177,37 @@ export function formatSize(p: Sized) {
   return "";
 }
 
+/** The variant the server adds to a variant product saved without colours. */
+export const DEFAULT_VARIANT = "default";
+export const isDefaultVariant = (v: { id: string }) => v.id === DEFAULT_VARIANT;
+/** True when the product has real colours to choose from. */
+export const hasColours = (p: Product) => p.variants.some((v) => !isDefaultVariant(v));
+
+/**
+ * The unit stock is shown in and how many of it one stocked piece holds. Tiles priced
+ * per m² are counted in m² (customers buy by room area); stock is still kept in pieces.
+ */
+export function stockUnitOf(p: Sized & { variants?: unknown[] }): {
+  unit: PriceUnit;
+  factor: number;
+} {
+  const unit = priceUnitOf(p);
+  if (!p.variants) return { unit, factor: 1 };
+  if (unit === "m2" && p.widthM && p.lengthM) return { unit, factor: p.widthM * p.lengthM };
+  if (unit === "meter" && p.lengthM) return { unit, factor: p.lengthM };
+  return { unit: "piece", factor: 1 };
+}
+
+/** "2.25" — a quantity with at most 3 decimals. */
+export const formatQty = (n: number) => String(Number(n.toFixed(3)));
+
+/** "40 м² (160 ширхэг)" for tiles sold by area, "160 ширхэг" otherwise. */
+export function stockLabel(p: Product, pieces: number) {
+  const { unit, factor } = stockUnitOf(p);
+  if (unit === "piece") return `${pieces} ширхэг`;
+  return `${formatQty(pieces * factor)} ${PRICE_UNIT_LABELS[unit]} (${pieces} ширхэг)`;
+}
+
 /** A glue that can be recommended for a carpet area (has a coverage per package). */
 export function isGlue(product: GlueProduct) {
   return Boolean(product.glueType && product.coverage);

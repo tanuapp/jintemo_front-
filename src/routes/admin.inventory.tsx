@@ -5,7 +5,7 @@ import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, ApiError, errorMessage, json } from "@/lib/api";
 import { useCatalog } from "@/lib/catalog-store";
-import type { StockLocation } from "@/lib/products";
+import { PRICE_UNIT_LABELS, formatQty, type PriceUnit, type StockLocation } from "@/lib/products";
 import { cn } from "@/lib/utils";
 import { DataError, Empty, Loading, PageTitle, Panel, inputClass } from "@/components/admin/shared";
 
@@ -30,11 +30,23 @@ type Row = {
   stock: number;
   updatedAt?: string | undefined;
   updatedBy: string;
+  /** Unit the stock is shown and entered in; `factor` units make one stocked piece. */
+  unit?: PriceUnit;
+  factor?: number;
 };
 type InventoryData = { locations: StockLocation[]; rows: Row[] };
 const QUERY_KEY = ["admin", "inventory"];
 const MAX_STOCK = 10000000;
 const total = (row: Row) => Object.values(row.inventory).reduce((sum, n) => sum + n, 0);
+const unitOf = (row: Row): PriceUnit => row.unit ?? "piece";
+const factorOf = (row: Row) => row.factor ?? 1;
+/** "40 м²" for 160 tiles of 0.25 m²; "160 ширхэг" for pieces. */
+const inUnit = (row: Row, pieces: number) =>
+  `${formatQty(pieces * factorOf(row))} ${PRICE_UNIT_LABELS[unitOf(row)]}`;
+const pieceNote = (row: Row) =>
+  factorOf(row) !== 1
+    ? `1 ширхэг = ${formatQty(factorOf(row))} ${PRICE_UNIT_LABELS[unitOf(row)]}`
+    : "";
 
 function Inventory() {
   const qc = useQueryClient();
@@ -110,7 +122,7 @@ function Inventory() {
     <>
       <PageTitle
         title="Үлдэгдэл"
-        description="Салбар бүрийн үлдэгдлийг тоон дээр дарж шууд засна. Enter дарах эсвэл гадна дарахад хадгалагдана, Esc дарвал болино."
+        description="Салбар бүрийн үлдэгдлийг тоон дээр дарж шууд засна. м²-ээр зарагддаг бараа м²-ээр харагдана. Enter дарах эсвэл гадна дарахад хадгалагдана, Esc дарвал болино."
       />
       <Panel>
         <div className="mb-5 flex flex-wrap gap-3">
@@ -152,7 +164,9 @@ function Inventory() {
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold leading-snug">{row.name}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {typeName(row.typeId)} · {row.code || "Кодгүй"}
+                    {[typeName(row.typeId), row.code || "Кодгүй", pieceNote(row)]
+                      .filter(Boolean)
+                      .join(" · ")}
                     {!row.active && " · Нуусан"}
                   </p>
                 </div>
@@ -166,7 +180,8 @@ function Inventory() {
                     <span className="text-sm">{l.name}</span>
                     <StockCell
                       label={`${row.name} — ${l.name}`}
-                      value={row.inventory[l.id] ?? 0}
+                      pieces={row.inventory[l.id] ?? 0}
+                      factor={factorOf(row)}
                       onSave={(n) => save(row, l.id, n)}
                     />
                   </div>
@@ -174,7 +189,16 @@ function Inventory() {
               </div>
               <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border pt-2">
                 <span className="text-sm text-muted-foreground">Нийт үлдэгдэл</span>
-                <span className="font-display text-lg font-bold tabular-nums">{total(row)}</span>
+                <span className="text-right">
+                  <span className="font-display text-lg font-bold tabular-nums">
+                    {inUnit(row, total(row))}
+                  </span>
+                  {factorOf(row) !== 1 && (
+                    <span className="block text-[11px] text-muted-foreground">
+                      {total(row)} ширхэг
+                    </span>
+                  )}
+                </span>
               </div>
               {row.updatedAt && (
                 <p className="text-right text-[11px] text-muted-foreground">
@@ -216,7 +240,7 @@ function Inventory() {
                       <div className="min-w-0">
                         <p className="max-w-56 truncate font-semibold">{row.name}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {row.code || "Кодгүй"}
+                          {[row.code || "Кодгүй", pieceNote(row)].filter(Boolean).join(" · ")}
                           {!row.active && " · Нуусан"}
                         </p>
                       </div>
@@ -227,13 +251,19 @@ function Inventory() {
                     <td key={l.id} className="pr-2 text-right">
                       <StockCell
                         label={`${row.name} — ${l.name}`}
-                        value={row.inventory[l.id] ?? 0}
+                        pieces={row.inventory[l.id] ?? 0}
+                        factor={factorOf(row)}
                         onSave={(n) => save(row, l.id, n)}
                       />
                     </td>
                   ))}
                   <td className="text-right">
-                    <p className="font-display text-base font-bold tabular-nums">{total(row)}</p>
+                    <p className="font-display text-base font-bold tabular-nums">
+                      {inUnit(row, total(row))}
+                    </p>
+                    {factorOf(row) !== 1 && (
+                      <p className="text-[11px] text-muted-foreground">{total(row)} ширхэг</p>
+                    )}
                     {row.updatedAt && (
                       <p className="mt-0.5 whitespace-nowrap text-[11px] text-muted-foreground">
                         {new Date(row.updatedAt).toLocaleString()}
@@ -244,18 +274,21 @@ function Inventory() {
                 </tr>
               ))}
             </tbody>
-            {visible.length > 0 && (
+            {visible.length > 0 && new Set(visible.map(unitOf)).size === 1 && (
               <tfoot>
                 <tr className="border-t-2 border-border font-semibold">
                   <td className="sticky left-0 z-10 bg-card py-3 pr-4">Нийт</td>
                   <td />
                   {locations.map((l) => (
                     <td key={l.id} className="pr-4 text-right tabular-nums">
-                      {visible.reduce((sum, r) => sum + (r.inventory[l.id] ?? 0), 0)}
+                      {formatQty(
+                        visible.reduce((sum, r) => sum + (r.inventory[l.id] ?? 0) * factorOf(r), 0),
+                      )}
                     </td>
                   ))}
                   <td className="text-right tabular-nums">
-                    {visible.reduce((sum, r) => sum + total(r), 0)}
+                    {formatQty(visible.reduce((sum, r) => sum + total(r) * factorOf(r), 0))}{" "}
+                    {PRICE_UNIT_LABELS[unitOf(visible[0]!)]}
                   </td>
                 </tr>
               </tfoot>
@@ -270,17 +303,21 @@ function Inventory() {
 
 /**
  * A number that turns into an input on click. Enter or leaving the cell saves, Escape
- * cancels. Only whole numbers from 0 up are accepted; a failed save restores the old value.
+ * cancels. The number is in the row's unit (e.g. m²) and must make a whole number of
+ * pieces; it is saved as pieces. A failed save restores the old value.
  */
 function StockCell({
   label,
-  value,
+  pieces,
+  factor,
   onSave,
 }: {
   label: string;
-  value: number;
-  onSave: (quantity: number) => Promise<void>;
+  pieces: number;
+  factor: number;
+  onSave: (pieces: number) => Promise<void>;
 }) {
+  const value = formatQty(pieces * factor);
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -295,9 +332,20 @@ function StockCell({
   };
   const commit = async (fromBlur: boolean) => {
     if (finished.current) return;
-    const t = text.trim();
-    if (!/^\d+$/.test(t) || Number(t) > MAX_STOCK) {
-      const message = "Үлдэгдэл 0 эсвэл түүнээс их бүхэл тоо байна.";
+    const t = text.trim().replace(",", ".");
+    const numeric = /^\d+(\.\d+)?$/.test(t);
+    const amount = Number(t);
+    const quantity = Math.round(amount / factor);
+    const whole = Math.abs(quantity * factor - amount) < 1e-6;
+    if (!numeric || !whole || quantity > MAX_STOCK) {
+      const lower = formatQty(Math.floor(amount / factor) * factor);
+      const upper = formatQty(Math.ceil(amount / factor) * factor);
+      const message =
+        factor === 1
+          ? "Үлдэгдэл 0 эсвэл түүнээс их бүхэл тоо байна."
+          : numeric
+            ? `1 ширхэг = ${formatQty(factor)} тул ${lower} эсвэл ${upper} гэж оруулна уу.`
+            : "Үлдэгдэл 0 эсвэл түүнээс их тоо байна.";
       if (!fromBlur) {
         setError(message);
         return;
@@ -310,8 +358,7 @@ function StockCell({
     }
     finished.current = true;
     setEditing(false);
-    const quantity = Number(t);
-    if (quantity === value) return;
+    if (quantity === pieces) return;
     setState("saving");
     try {
       await onSave(quantity);
@@ -329,7 +376,7 @@ function StockCell({
           autoFocus
           aria-label={label}
           aria-invalid={!!error}
-          inputMode="numeric"
+          inputMode={factor === 1 ? "numeric" : "decimal"}
           className={cn(
             "h-9 w-24 rounded-md border bg-card px-2 text-right text-base tabular-nums outline-none focus:ring-2 focus:ring-ring/30",
             error ? "border-destructive" : "border-input",

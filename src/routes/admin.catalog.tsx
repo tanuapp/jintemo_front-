@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ChevronUp, ChevronDown, Pencil } from "lucide-react";
 import { useCatalog } from "@/lib/catalog-store";
-import { formatPrice, priceUnitOf } from "@/lib/products";
+import { PRICE_UNIT_LABELS, formatPrice, priceUnitOf, stockLabel } from "@/lib/products";
 import { Btn } from "@/components/ui-kit";
 import { ProductTypesPanel } from "@/components/admin/product-types";
 import {
@@ -181,11 +181,6 @@ function Catalog() {
                             ? c.sections.find((s) => s.id === p.sectionId)?.name
                             : p.packageSize}
                         </p>
-                        {p.kind === "carpet" && !p.variants.length && (
-                          <p className="mt-1 text-xs font-medium text-destructive">
-                            Өнгө нэмээгүй тул вэб дээр харагдахгүй
-                          </p>
-                        )}
                       </div>
                     </div>
                   </td>
@@ -195,8 +190,11 @@ function Catalog() {
                   </td>
                   <td>
                     {p.kind === "carpet"
-                      ? p.variants.reduce((s, v) => s + v.stock, 0)
-                      : (p.stock ?? 0)}
+                      ? stockLabel(
+                          p,
+                          p.variants.reduce((s, v) => s + v.stock, 0),
+                        )
+                      : `${p.stock ?? 0} ${PRICE_UNIT_LABELS[priceUnitOf(p)]}`}
                   </td>
                   <td>
                     <span

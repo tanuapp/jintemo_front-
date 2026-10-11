@@ -13,7 +13,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Btn } from "@/components/ui-kit";
 import { useCatalog } from "@/lib/catalog-store";
-import { KIND_HINTS, KIND_LABELS, type ProductKind, type ProductType } from "@/lib/products";
+import {
+  KIND_HINTS,
+  KIND_LABELS,
+  isDefaultVariant,
+  type ProductKind,
+  type ProductType,
+} from "@/lib/products";
 import { ImageField } from "./image-field";
 import { Panel, inputClass, useAction } from "./shared";
 
@@ -66,7 +72,9 @@ export function ProductTypesPanel() {
   const structureLock = (type: ProductType) => {
     if (type.kind === "glue")
       return type.productCount ? "Бүтээгдэхүүнтэй тул өнгөний хувилбартай болгох боломжгүй." : null;
-    return c.products.some((p) => p.typeId === type.id && p.variants.length > 0)
+    return c.products.some(
+      (p) => p.typeId === type.id && p.variants.some((v) => !isDefaultVariant(v)),
+    )
       ? "Өнгөний хувилбартай бүтээгдэхүүн байгаа тул бүтцийг солих боломжгүй."
       : null;
   };

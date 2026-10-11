@@ -4,6 +4,7 @@ import { QuantityStepper } from "@/components/ui-kit";
 import { useCatalog } from "@/lib/catalog-store";
 import { m2, mnt } from "@/lib/format";
 import {
+  isDefaultVariant,
   formatPrice,
   formatSize,
   glueSpec,
@@ -46,7 +47,12 @@ export function CarpetLine({
                 <h2 className="truncate font-display font-bold">{product.name}</h2>
               </Link>
               <p className="text-sm text-muted-foreground">
-                Өнгө: {variant.name} · Код: {variant.code}
+                {[
+                  isDefaultVariant(variant) ? "" : `Өнгө: ${variant.name}`,
+                  variant.code && `Код: ${variant.code}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </p>
               <p className="text-sm text-muted-foreground">
                 {[

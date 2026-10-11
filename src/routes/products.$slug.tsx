@@ -17,6 +17,12 @@ import {
 import { useCatalog } from "@/lib/catalog-store";
 import { m2, mnt } from "@/lib/format";
 import {
+  PRICE_UNIT_LABELS,
+  formatQty,
+  hasColours,
+  isDefaultVariant,
+  stockLabel,
+  stockUnitOf,
   formatPrice,
   formatSize,
   isGlue,
@@ -164,7 +170,7 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
       effectivePieces < 1 ||
       effectivePieces > variant.stock
     ) {
-      toast.error(`Үлдэгдэл ${variant.stock} ширхэг. Тоо хэмжээгээ шалгана уу.`);
+      toast.error(`Үлдэгдэл ${stockLabel(product, variant.stock)}. Тоо хэмжээгээ шалгана уу.`);
       return;
     }
     if (
@@ -184,7 +190,13 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
       addItem({ kind: "glue", glueSlug: selectedGlue.slug, quantity: glueQty });
     }
     toast.success("Сагсанд нэмэгдлээ", {
-      description: `${product.name} · ${variant.name} · ${effectivePieces} ширхэг`,
+      description: [
+        product.name,
+        isDefaultVariant(variant) ? "" : variant.name,
+        stockLabel(product, effectivePieces),
+      ]
+        .filter(Boolean)
+        .join(" · "),
     });
     navigate({ to: "/cart" });
   };
@@ -273,7 +285,7 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
             {inStock ? "Бэлэн байгаа" : "Түр дууссан"}
           </p>
 
-          <div className="mt-6">
+          <div className="mt-6" hidden={!hasColours(product)}>
             <p className="text-sm font-semibold">Сонгосон өнгө: {variant.name}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {visibleColors.map((v) => (
@@ -307,7 +319,7 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
               ["Материал", product.material],
               ["Код", variant.code],
               ["Үйлдвэрлэсэн улс", product.origin],
-              ["Бэлэн үлдэгдэл", `${variant.stock} ширхэг`],
+              ["Бэлэн үлдэгдэл", stockLabel(product, variant.stock)],
             ]
               .filter(([, v]) => v)
               .map(([k, v]) => (
@@ -351,7 +363,10 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
 
                 <div className="mt-4 rounded-md border border-border bg-card p-4">
                   <SummaryRow label="Өрөөний талбай" value={m2(roomArea)} />
-                  <SummaryRow label="Хэрэгцээт хэмжээ" value={`${suggestedPieces} ширхэг`} />
+                  <SummaryRow
+                    label="Хэрэгцээт хэмжээ"
+                    value={stockLabel(product, suggestedPieces)}
+                  />
                   <SummaryRow label="Бүтээгдэхүүний дүн" value={mnt(goods)} strong />
                 </div>
 
@@ -371,6 +386,12 @@ function CarpetDetail({ product }: { product: Extract<CatalogEntry, { kind: "car
                   setPieces(v);
                 }}
               />
+              {stockUnitOf(product).unit !== "piece" && (
+                <span className="text-sm text-muted-foreground">
+                  = {formatQty(effectivePieces * stockUnitOf(product).factor)}{" "}
+                  {PRICE_UNIT_LABELS[stockUnitOf(product).unit]}
+                </span>
+              )}
               {manual && tileArea > 0 && (
                 <button className="text-xs text-accent underline" onClick={() => setManual(false)}>
                   Тооцоолсон дүнг сэргээх
