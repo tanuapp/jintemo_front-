@@ -166,6 +166,8 @@ function AppLayout() {
         <Outlet />
       </AdminShell>
     );
+  // The room visualizer is a full-screen app of its own, without the shop's header and footer.
+  if (pathname === "/visualizer") return <Outlet />;
   return (
     <>
       <div className="flex min-h-screen flex-col">
